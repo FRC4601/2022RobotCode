@@ -21,6 +21,7 @@
 
 #include <iostream>
 #include <memory>
+#include <string.h>
 
 // Limelight directives
 // API - https://docs.limelightvision.io/en/latest/getting_started.html
@@ -79,9 +80,6 @@ class Robot : public frc::TimedRobot {
   frc::Joystick m_leftStick{0};
   frc::Joystick m_rightStick{1};
 
-  // Initialization
-  bool hasAligned = false;
-
 
  public:
   void RobotInit() override {
@@ -114,9 +112,8 @@ class Robot : public frc::TimedRobot {
     }
 
     // TESTING LIMELIGHT ALIGN CODE
-
+    bool hasAligned = true;
     if (m_rightStick.GetRawButton(8)){
-      hasAligned = false;
       nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",0);
       double tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
       double ta = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ta", 0.0);
@@ -157,8 +154,8 @@ class Robot : public frc::TimedRobot {
       // Distance Tracking
       else {
         
-        float desiredDistance = 10; // Most likely in feet? needs testings
-        float currentDistance = EstimateDistance();
+        double desiredDistance = 15; // Most likely in feet? needs testings
+        double currentDistance = EstimateDistance();
 
         if (desiredDistance > currentDistance){
           m_robotDrive.TankDrive(0.55,0.55);  // Backup
@@ -167,8 +164,11 @@ class Robot : public frc::TimedRobot {
           m_robotDrive.TankDrive(-0.55,-0.55);  // Move Forward
         }
         else {
-          m_robotDrive.TankDrive(0,0);
+          m_robotDrive.TankDrive(1,1);
         }
+
+        std::string s = std::to_string(currentDistance);
+        frc::SmartDashboard::PutString("DB/String 0", s);
         
 
       }
@@ -188,10 +188,16 @@ class Robot : public frc::TimedRobot {
 
   double EstimateDistance() {
     double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty",0.0);
-    double h2 = 20; // Height of target = 98.25
-    double h1 = 26.13; // Height of camera from floor = 26.13
-    double a1 = 3;  // Yaw of camera = 0
-    double d = (h2 - h1) / tan(a1 + ty);
+    double h2 = 55; // Height of target = 98.25
+    double h1 = 9; // Height of camera from floor = 26.13
+    double a1 = 10;  // Yaw of camera = 0
+
+    // Based off limelight docs
+    double angleToGoalDegrees = a1 + ty;
+    double angleToGoalRadians = angleToGoalDegrees * (3.14159 / 180.0);
+    double d = (h2 - h1)/ tan(angleToGoalDegrees);
+
+    //double d = (h2 - h1) / tan(a1 + ty);
     return d;
     //D Returns in inches
     //TODO: return in metric (is it really necessary to?)
