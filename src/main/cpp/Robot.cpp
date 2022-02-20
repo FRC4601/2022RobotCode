@@ -36,33 +36,8 @@
 //Path
 
 
-/**
- * This is a demo program showing the use of the DifferentialDrive class.
- * Runs the motors with tank steering.
- */
-
 
 class Robot : public frc::TimedRobot {
-  
-  /*
-  // Limelight
-   Need to redefine these variables when needed in order to have up to date values
-    Defining a NetworkTable and pulling from that no longer works like what is shown in docs
-   EXAMPLE -- tv = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tv",0.0);
-  
-  double tv;  // Whether the limelight has any valid targets (0 or 1)
-  double tx;  // Horizontal Offset From Crosshair To Target (LL1: -27 degrees to 27 degrees | LL2: -29.8 to 29.8 degrees)
-  double ty;  // Vertical Offset From Crosshair To Target (LL1: -20.5 degrees to 20.5 degrees | LL2: -24.85 to 24.85 degrees)
-  double ta;  // Target Area (0% of image to 100% of image)
-  double ts;  // Skew or rotation (-90 degrees to 0 degrees)
-  double tl;  // The pipeline’s latency contribution (ms) Add at least 11ms for image capture latency.
-
-  //std::shared_ptr<NetworkTable> table = nt::NetworkTableInstance::GetDefault().GetTable("limelight");
-  //double targetOffsetAngle_Horizontal = table->GetNumber("tx",0.0);
-  //double targetOffsetAngle_Vertical = table->GetNumber("ty",0.0);
-  //double targetArea = table->GetNumber("ta",0.0);
-  //double targetSkew = table->GetNumber("ts",0.0);
-  */
 
   // Talon
   TalonFX shooter1 = {1}; // number refers to device id. Can be found in Tuner
