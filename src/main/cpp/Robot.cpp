@@ -15,6 +15,7 @@
 #include <frc/TimedRobot.h>
 #include <frc/drive/DifferentialDrive.h>
 #include <frc/motorcontrol/PWMSparkMax.h>
+#include <frc/motorcontrol/PWMVictorSPX.h>
 
 // CTRE Docs - https://docs.ctre-phoenix.com/en/stable/ch05a_CppJava.html
 #include <ctre/Phoenix.h>
@@ -31,6 +32,12 @@
 #include "networktables/NetworkTableEntry.h"
 #include "networktables/NetworkTableValue.h"
 #include "wpi/span.h"
+
+// Rev directives
+// API - https://codedocs.revrobotics.com/cpp/namespacerev.html -/- Relative Encoder Class https://codedocs.revrobotics.com/cpp/classrev_1_1_relative_encoder.html
+#include <rev/CANSparkMax.h>
+#include <rev/RelativeEncoder.h>  // useful doc ~ https://github.com/REVrobotics/SPARK-MAX-Examples/issues/15
+
 //FRC Pathplanner
 
 //Path
@@ -39,14 +46,32 @@
 
 class Robot : public frc::TimedRobot {
 
+  // Initialization
+  bool shooterArmPosition = false;  // false - up ~ true - down
+
+
   // Talon
   TalonFX shooter1 = {1}; // number refers to device id. Can be found in Tuner
   TalonFX shooter2 = {2};
 
-
   // Motor controllers
-  frc::PWMSparkMax m_leftMotor{0};
-  frc::PWMSparkMax m_rightMotor{1};
+  frc::PWMVictorSPX m_leftMotor{1};
+  frc::PWMVictorSPX m_rightMotor{2};
+  frc::PWMVictorSPX armMotor{3};
+  frc::PWMVictorSPX ballsuckingMotor{4};
+
+  // Encoders
+  static constexpr int kCanID = 1;
+  static constexpr auto kMotorType = rev::CANSparkMax::MotorType::kBrushless;
+  static constexpr auto kAltEncType = rev::CANEncoder::AlternateEncoderType::kQuadrature;
+  static constexpr int kCPR = 8192;
+
+  rev::CANSparkMax m_motor{kCanID, kMotorType};
+  rev::SparkMaxAlternateEncoder m_alternateEncoder = m_motor.GetAlternateEncoder(kAltEncType, kCPR);
+  rev::SparkMaxPIDController m_pidController = m_motor.GetPIDController();
+
+  // PID coefficients
+  double kP = 0.1, kI = 1e-4, kD = 1, kIz = 0, kFF = 0, kMaxOutput = 1, kMinOutput = -1;
   
   // Robot Drive
   frc::DifferentialDrive m_robotDrive{m_leftMotor, m_rightMotor};
@@ -69,14 +94,41 @@ class Robot : public frc::TimedRobot {
   void TeleopPeriodic() override {
     // Drive with tank style
     m_robotDrive.TankDrive(m_leftStick.GetY(), m_rightStick.GetY());
+
+
+    // Shooter encoder rotation control
+    m_motor.RestoreFactoryDefaults();
+    m_pidController.SetFeedbackDevice(m_alternateEncoder);
+
+    // set PID coefficients
+    m_pidController.SetP(kP);
+    m_pidController.SetI(kI);
+    m_pidController.SetD(kD);
+    m_pidController.SetIZone(kIz);
+    m_pidController.SetFF(kFF);
+    m_pidController.SetOutputRange(kMinOutput, kMaxOutput);
+
+    // use SetPosition to make shooter up/down positioning a toggle
+    if (m_leftStick.GetRawButton(2)) {
+      // if arm is down move up
+      if(shooterArmPosition){
+        m_alternateEncoder.SetPosition(-1); // These values need testing
+      }
+      else {
+        m_alternateEncoder.SetPosition(1);
+      }
+      shooterArmPosition = !shooterArmPosition;
+    }
+
+
       
-    //shooter
-    if(m_leftStick.GetRawButton(1)){
+    // Shooter control
+    if (m_leftStick.GetRawButton(1)){
       shooter1.Set(ControlMode::PercentOutput, 0.5);
       //shooter2.Set(ControlMode::Follower, 5); // I'm unsure exactly how the 'Follower' control mode works. Needs testing
       shooter2.Set(ControlMode::PercentOutput, 0.5);
     }
-    else if(m_rightStick.GetRawButton(1)){
+    else if (m_rightStick.GetRawButton(1)){
       shooter1.Set(ControlMode::PercentOutput, 0.25);
       //shooter2.Set(ControlMode::Follower, 5); // I'm unsure exactly how the 'Follower' control mode works. Needs testing
       shooter2.Set(ControlMode::PercentOutput, 0.25);
