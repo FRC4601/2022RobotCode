@@ -55,12 +55,13 @@ class Robot : public frc::TimedRobot {
   TalonFX shooter2 = {2};
 
   // Motor controllers
-  frc::PWMVictorSPX m_leftMotor{1};
-  frc::PWMVictorSPX m_rightMotor{2};
+  frc::PWMVictorSPX m_leftMotor{0};
+  frc::PWMVictorSPX m_rightMotor{1};
   frc::PWMVictorSPX armMotor{3};
   frc::PWMVictorSPX ballsuckingMotor{4};
 
   // Encoders
+  /*
   static constexpr int kCanID = 1;
   static constexpr auto kMotorType = rev::CANSparkMax::MotorType::kBrushless;
   static constexpr auto kAltEncType = rev::CANEncoder::AlternateEncoderType::kQuadrature;
@@ -72,7 +73,8 @@ class Robot : public frc::TimedRobot {
 
   // PID coefficients
   double kP = 0.1, kI = 1e-4, kD = 1, kIz = 0, kFF = 0, kMaxOutput = 1, kMinOutput = -1;
-  
+  */
+
   // Robot Drive
   frc::DifferentialDrive m_robotDrive{m_leftMotor, m_rightMotor};
 
@@ -95,7 +97,7 @@ class Robot : public frc::TimedRobot {
     // Drive with tank style
     m_robotDrive.TankDrive(m_leftStick.GetY(), m_rightStick.GetY());
 
-
+    /*
     // Shooter encoder rotation control
     m_motor.RestoreFactoryDefaults();
     m_pidController.SetFeedbackDevice(m_alternateEncoder);
@@ -119,6 +121,7 @@ class Robot : public frc::TimedRobot {
       }
       shooterArmPosition = !shooterArmPosition;
     }
+    */
 
 
       
@@ -181,6 +184,7 @@ class Robot : public frc::TimedRobot {
       // Distance Tracking
       else {
         
+        /*
         double desiredDistance = 15; // Most likely in feet? needs testings
         double currentDistance = EstimateDistance();
 
@@ -196,7 +200,21 @@ class Robot : public frc::TimedRobot {
 
         std::string s = std::to_string(currentDistance);
         frc::SmartDashboard::PutString("DB/String 0", s);
+        */
         
+        // Crosshair distance test code
+        double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
+        double distanceAdjust = -0.1;
+
+        float drivingAdjust = distanceAdjust * ty;
+        float driveCommand = drivingAdjust;
+
+        m_robotDrive.TankDrive(-driveCommand, -driveCommand);
+        
+        double currentDistance = EstimateDistance();
+        std::string s = std::to_string(currentDistance);
+        frc::SmartDashboard::PutString("DB/String 0", s);
+
 
       }
 
@@ -204,7 +222,7 @@ class Robot : public frc::TimedRobot {
     }
     else {
       // Force limelight LED off
-      nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",1);
+      //nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",1);
     }
 
 
@@ -227,7 +245,6 @@ class Robot : public frc::TimedRobot {
     //double d = (h2 - h1) / tan(a1 + ty);
     return d;
     //D Returns in inches
-    //TODO: return in metric (is it really necessary to?)
   }
 
   /*
