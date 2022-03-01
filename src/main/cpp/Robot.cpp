@@ -142,89 +142,72 @@ class Robot : public frc::TimedRobot {
     }
 
     // TESTING LIMELIGHT ALIGN CODE
-    bool hasAligned = true;
-    if (m_rightStick.GetRawButton(8)){
+
+    // Rotational Tracking
+    if (m_rightStick.GetRawButton(1)){
       nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",0);
       double tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
       double ta = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ta", 0.0);
       double tv = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tv", 0.0);
 
-      if (!hasAligned) {
-
-        // Rotational Tracking
-        if (!(tx < 6 && tx > -6)){
+      if (!(tx < 6 && tx > -6)){
+        tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
+        if (tx > 6){
           tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-          if (tx > 6){
-            tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-            m_robotDrive.TankDrive(-0.75,0.75);
-          }
-          else if (tx < -6){
-            tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-            m_robotDrive.TankDrive(0.75,-0.75);
-          }
+          m_robotDrive.TankDrive(-0.75,0.75);
         }
-        else if (!(tx < 3 && tx > -3)){
+        else if (tx < -6){
           tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-          if (tx > 3){
-            tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-            m_robotDrive.TankDrive(-0.55,0.55);
-          }
-          else if (tx < -3){
-            tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-            m_robotDrive.TankDrive(0.5,-0.55);
-          }
-        }
-        else {
-          tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-          m_robotDrive.TankDrive(0,0);
-          hasAligned = true;
+          m_robotDrive.TankDrive(0.75,-0.75);
         }
       }
-
-      // Distance Tracking
+      else if (!(tx < 3 && tx > -3)){
+        tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
+        if (tx > 3){
+          tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
+          m_robotDrive.TankDrive(-0.55,0.55);
+        }
+        else if (tx < -3){
+          tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
+          m_robotDrive.TankDrive(0.5,-0.55);
+        }
+      }
       else {
-        
-        /*
-        double desiredDistance = 15; // Most likely in feet? needs testings
-        double currentDistance = EstimateDistance();
-
-        if (desiredDistance > currentDistance){
-          m_robotDrive.TankDrive(0.55,0.55);  // Backup
-        }
-        else if (desiredDistance < currentDistance){
-          m_robotDrive.TankDrive(-0.55,-0.55);  // Move Forward
-        }
-        else {
-          m_robotDrive.TankDrive(1,1);
-        }
-
-        std::string s = std::to_string(currentDistance);
-        frc::SmartDashboard::PutString("DB/String 0", s);
-        */
-        
-        // Crosshair distance test code
-        double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
-        double distanceAdjust = -0.1;
-
-        float drivingAdjust = distanceAdjust * ty;
-        float driveCommand = drivingAdjust;
-
-        m_robotDrive.TankDrive(-driveCommand, -driveCommand);
-        
-        double currentDistance = EstimateDistance();
-        std::string s = std::to_string(currentDistance);
-        frc::SmartDashboard::PutString("DB/String 0", s);
-
-
+        tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
+        m_robotDrive.TankDrive(0,0);
       }
+    }
 
 
+    // Distance Tracking
+    /*
+    double desiredDistance = 15; // Most likely in feet? needs testings
+    double currentDistance = EstimateDistance();
+
+    if (desiredDistance > currentDistance){
+      m_robotDrive.TankDrive(0.55,0.55);  // Backup
+    }
+    else if (desiredDistance < currentDistance){
+      m_robotDrive.TankDrive(-0.55,-0.55);  // Move Forward
     }
     else {
-      // Force limelight LED off
-      //nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",1);
+      m_robotDrive.TankDrive(1,1);
     }
 
+    std::string s = std::to_string(currentDistance);
+    frc::SmartDashboard::PutString("DB/String 0", s);
+    */
+        
+    // Crosshair distance test code
+    if (m_leftStick.GetRawButton(1)){
+      double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
+      double distanceAdjust = -0.2;
+
+      float drivingAdjust = distanceAdjust * ty;
+      float driveCommand = drivingAdjust;
+
+      m_robotDrive.TankDrive(-driveCommand, -driveCommand);
+    }
 
 
         
