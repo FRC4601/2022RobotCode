@@ -21,6 +21,7 @@
 #include <iostream>
 #include <memory>
 #include <string.h>
+#include <cstdlib>
 
 // Limelight directives
 // API - https://docs.limelightvision.io/en/latest/getting_started.html
@@ -49,6 +50,8 @@ class Robot : public frc::TimedRobot {
 
   // Initialization
   bool shooterArmPosition = false;  // false - up ~ true - down
+
+  double arcadeY, arcadeX;
 
   // Color Sensor
   static constexpr auto i2cPort = frc::I2C::Port::kOnboard;
@@ -108,7 +111,48 @@ class Robot : public frc::TimedRobot {
 
   void TeleopPeriodic() override {
     // Drive with tank style
-    m_robotDrive.TankDrive(m_leftStick.GetY(), m_rightStick.GetY());
+    //m_robotDrive.TankDrive(m_leftStick.GetY(), m_rightStick.GetY());
+
+    // Drive with arcade style
+    frc::SmartDashboard::PutNumber("Slider Value", m_rightStick.GetRawAxis(3));
+    float sliderRawValue = m_rightStick.GetRawAxis(3);
+    float powerValue = (sliderRawValue + 1) / 2;
+    frc::SmartDashboard::PutNumber("Power Value", powerValue);
+
+    int driveInt = 0;
+
+    if (m_rightStick.GetY() >= 0.25) {
+      driveInt = -1;
+    }
+    else if (m_rightStick.GetY() <= -0.25) {
+      driveInt = 1;
+    }
+    else {
+      driveInt = 0;
+    }
+
+    if (driveInt == 1) {
+      //m_robotDrive.ArcadeDrive(powerValue, m_rightStick.GetX(), false);
+      frc::SmartDashboard::PutString("Drive Direction", "Forward");
+    }
+    else if (driveInt == -1) {
+      //m_robotDrive.ArcadeDrive(-powerValue, m_rightStick.GetX(), false);
+      frc::SmartDashboard::PutString("Drive Direction", "Backward");
+    }
+    else {
+      //m_robotDrive.ArcadeDrive(0, 0, false);
+      frc::SmartDashboard::PutString("Drive Direction", "N/A");
+    }
+
+
+    
+
+
+
+    
+
+
+
 
     /*
     // Shooter encoder rotation control
