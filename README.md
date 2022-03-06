@@ -9,4 +9,4 @@ Team 4601 robot code for FRC 2022
 - Test working 2 motors in tandem
 - Test shooter are toggle code
 - Test values for SetPosition() function on m_alternateEncoder
-- Write arcade drive code with slider power
+- Finish arcade drive code with slider power
