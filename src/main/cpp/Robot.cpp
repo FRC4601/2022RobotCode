@@ -9,8 +9,6 @@
 
 
 
-
-
 #include <frc/Joystick.h>
 #include <frc/TimedRobot.h>
 #include <frc/drive/DifferentialDrive.h>
@@ -38,6 +36,9 @@
 #include <rev/CANSparkMax.h>
 #include <rev/RelativeEncoder.h>  // useful doc ~ https://github.com/REVrobotics/SPARK-MAX-Examples/issues/15
 
+#include <rev/ColorSensorV3.h>
+#include <rev/ColorMatch.h>
+
 //FRC Pathplanner
 
 //Path
@@ -49,6 +50,14 @@ class Robot : public frc::TimedRobot {
   // Initialization
   bool shooterArmPosition = false;  // false - up ~ true - down
 
+  // Color Sensor
+  static constexpr auto i2cPort = frc::I2C::Port::kOnboard;
+  rev::ColorSensorV3 m_colorSensor{i2cPort};
+  rev::ColorMatch m_colorMatcher;
+
+  // Color Targets (values need calibrated)
+  static constexpr frc::Color kBlueTarget = frc::Color(0.143, 0.427, 0.429);
+  static constexpr frc::Color kRedTarget = frc::Color(0.561, 0.232, 0.114);  
 
   // Talon
   TalonFX shooter1 = {1}; // number refers to device id. Can be found in Tuner
@@ -89,7 +98,11 @@ class Robot : public frc::TimedRobot {
     // result in both sides moving forward. Depending on how your robot's
     // gearbox is constructed, you might have to invert the left side instead.
     m_leftMotor.SetInverted(true);
-    shooter2.SetInverted(true);
+    shooter2.SetInverted(true); // Pretty sure john put this in. Not sure of this needs inverted.
+
+    // Color Match Targets
+    m_colorMatcher.AddColorMatch(kBlueTarget);
+    m_colorMatcher.AddColorMatch(kRedTarget);
     
   };
 
@@ -140,6 +153,36 @@ class Robot : public frc::TimedRobot {
       shooter1.Set(ControlMode::PercentOutput, 0.0);
       shooter2.Set(ControlMode::PercentOutput, 0.0);
     }
+
+
+    // Color Match Code
+
+    frc::Color detectedColor = m_colorSensor.GetColor();
+
+    std::string colorName;
+    double confidence = 0.0;
+    frc::Color matchedColor = m_colorMatcher.MatchClosestColor(detectedColor, confidence);
+
+    if (matchedColor == kBlueTarget) {  // I hate that I can't use a switch statement
+      colorName = "Blue";
+    }
+    else if (matchedColor == kRedTarget) {
+      colorName = "Red";
+    }
+    else {
+      colorName = "Unknown";
+    }
+
+    // Use detected RGB values to calibrate
+    frc::SmartDashboard::PutNumber("Red", detectedColor.red);
+    frc::SmartDashboard::PutNumber("Green", detectedColor.green);
+    frc::SmartDashboard::PutNumber("Blue", detectedColor.blue);
+    frc::SmartDashboard::PutNumber("Confidence", confidence);
+    frc::SmartDashboard::PutString("Detected Color", colorName);
+
+
+
+
 
     // TESTING LIMELIGHT ALIGN CODE
 
