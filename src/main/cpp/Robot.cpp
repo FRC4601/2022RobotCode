@@ -109,7 +109,7 @@ class Robot : public frc::TimedRobot {
 
   void TeleopPeriodic() override {
     // Turn led off so my eyes don't burn while testing
-    nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",1);
+    //nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",1);
 
     #pragma region // Drive Code
 
@@ -150,17 +150,17 @@ class Robot : public frc::TimedRobot {
 
       if (driveInt == 1) 
       {
-        m_robotDrive.ArcadeDrive(-powerValue, m_rightStick.GetX(), false);
+        m_robotDrive.ArcadeDrive(-powerValue, -m_rightStick.GetX(), false);
         frc::SmartDashboard::PutString("Drive Direction", "Forward");
       }
       else if (driveInt == -1) 
       {
-        m_robotDrive.ArcadeDrive(powerValue, m_rightStick.GetX(), false);
+        m_robotDrive.ArcadeDrive(powerValue, -m_rightStick.GetX(), false);
         frc::SmartDashboard::PutString("Drive Direction", "Backward");
       }
       else 
       {
-        m_robotDrive.ArcadeDrive(0, m_rightStick.GetX(), false);
+        m_robotDrive.ArcadeDrive(0, -m_rightStick.GetX(), false);
         frc::SmartDashboard::PutString("Drive Direction", "N/A");
       }
     }
@@ -257,8 +257,6 @@ class Robot : public frc::TimedRobot {
 
     #pragma region // Limelight code
 
-    // TESTING LIMELIGHT ALIGN CODE
-
     // Rotational Tracking
     if (m_rightStick.GetRawButton(1)) 
     {
@@ -298,10 +296,25 @@ class Robot : public frc::TimedRobot {
       else 
       {
         tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-        m_robotDrive.TankDrive(0,0);
+        double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
+        double distanceAdjust = -0.2;
+
+        float drivingAdjust = distanceAdjust * ty;
+
+        m_robotDrive.TankDrive(-drivingAdjust, -drivingAdjust);
       }
     }
 
+    // Crosshair distance code
+    if (m_leftStick.GetRawButton(1)) 
+    {
+      double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
+      double distanceAdjust = -0.2;
+
+      float drivingAdjust = distanceAdjust * ty;
+
+      m_robotDrive.TankDrive(-drivingAdjust, -drivingAdjust);
+    }
 
     // Distance Tracking
     /*
@@ -322,17 +335,6 @@ class Robot : public frc::TimedRobot {
     frc::SmartDashboard::PutString("DB/String 0", s);
     */
         
-    // Crosshair distance test code
-    if (m_leftStick.GetRawButton(1)) 
-    {
-      double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
-      double distanceAdjust = -0.2;
-
-      float drivingAdjust = distanceAdjust * ty;
-      float driveCommand = drivingAdjust;
-
-      m_robotDrive.TankDrive(-driveCommand, -driveCommand);
-    }
 
     #pragma endregion
 
