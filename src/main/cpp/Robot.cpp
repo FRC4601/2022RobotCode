@@ -1,13 +1,6 @@
 // Copyright (c) FIRST and other WPILib contributors.
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
-//  Goals:
-
-/*Changelog
-
-*/
-
-
 
 #include <frc/Joystick.h>
 #include <frc/TimedRobot.h>
@@ -48,6 +41,8 @@
 
 
 class Robot : public frc::TimedRobot {
+
+  #pragma region // Initialization
 
   // Initialization
   bool shooterArmPosition = false;  // false - up ~ true - down
@@ -95,15 +90,14 @@ class Robot : public frc::TimedRobot {
   // Joysticks
   frc::Joystick m_leftStick{0};
   frc::Joystick m_rightStick{1};
-
   frc::XboxController xboxController{2};
+
+  #pragma endregion
 
 
  public:
   void RobotInit() override {
-    // We need to invert one side of the drivetrain so that positive voltages
-    // result in both sides moving forward. Depending on how your robot's
-    // gearbox is constructed, you might have to invert the left side instead.
+    // Motor inverts
     m_leftMotor.SetInverted(true);
     shooter2.SetInverted(true);
 
@@ -114,21 +108,25 @@ class Robot : public frc::TimedRobot {
   };
 
   void TeleopPeriodic() override {
+    // Turn led off so my eyes don't burn while testing
     nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",1);
+
+    #pragma region // Drive Code
 
     // Toggle between tank and arcade
     if (m_rightStick.GetRawButtonPressed(14)) {
       driveCodeToggle = !driveCodeToggle;
     }
-
     frc::SmartDashboard::PutBoolean("Drive Toggle", driveCodeToggle);
     
     // Drive Code
-    if (driveCodeToggle) {
+    if (driveCodeToggle) 
+    {
       // Drive with tank style
       m_robotDrive.TankDrive(m_leftStick.GetY(), m_rightStick.GetY());
     }
-    else {
+    else 
+    {
       // Drive with arcade style
       frc::SmartDashboard::PutNumber("Slider Value", m_rightStick.GetRawAxis(3));
       float sliderRawValue = m_rightStick.GetRawAxis(3);
@@ -137,40 +135,40 @@ class Robot : public frc::TimedRobot {
 
       int driveInt = 0;
 
-      if (m_rightStick.GetY() >= 0.25) {
+      if (m_rightStick.GetY() >= 0.25) 
+      {
         driveInt = -1;
       }
-      else if (m_rightStick.GetY() <= -0.25) {
+      else if (m_rightStick.GetY() <= -0.25) 
+      {
         driveInt = 1;
       }
-      else {
+      else 
+      {
         driveInt = 0;
       }
 
-      if (driveInt == 1) {
+      if (driveInt == 1) 
+      {
         m_robotDrive.ArcadeDrive(-powerValue, m_rightStick.GetX(), false);
         frc::SmartDashboard::PutString("Drive Direction", "Forward");
       }
-      else if (driveInt == -1) {
+      else if (driveInt == -1) 
+      {
         m_robotDrive.ArcadeDrive(powerValue, m_rightStick.GetX(), false);
         frc::SmartDashboard::PutString("Drive Direction", "Backward");
       }
-      else {
+      else 
+      {
         m_robotDrive.ArcadeDrive(0, m_rightStick.GetX(), false);
         frc::SmartDashboard::PutString("Drive Direction", "N/A");
       }
     }
     
+    #pragma endregion
 
 
-    
-
-
-
-    
-
-
-
+    #pragma region // Shooter Encoder Code
 
     /*
     // Shooter encoder rotation control
@@ -198,24 +196,34 @@ class Robot : public frc::TimedRobot {
     }
     */
 
+   #pragma endregion
 
-      
+
+    #pragma region // Shooter Control
+
     // Shooter control
-    if (m_leftStick.GetRawButton(1)){
+    if (m_leftStick.GetRawButton(1)) 
+    {
       shooter1.Set(ControlMode::PercentOutput, 0.5);
       //shooter2.Set(ControlMode::Follower, 5); // I'm unsure exactly how the 'Follower' control mode works. Needs testing
       shooter2.Set(ControlMode::PercentOutput, 0.5);
     }
-    else if (m_rightStick.GetRawButton(1)){
+    else if (m_rightStick.GetRawButton(1)) 
+    {
       shooter1.Set(ControlMode::PercentOutput, 0.25);
       //shooter2.Set(ControlMode::Follower, 5); // I'm unsure exactly how the 'Follower' control mode works. Needs testing
       shooter2.Set(ControlMode::PercentOutput, 0.25);
     }
-    else{
+    else 
+    {
       shooter1.Set(ControlMode::PercentOutput, 0.0);
       shooter2.Set(ControlMode::PercentOutput, 0.0);
     }
 
+    #pragma endregion
+
+
+    #pragma region // Color Match Code
 
     // Color Match Code
     frc::Color detectedColor = m_colorSensor.GetColor();
@@ -224,13 +232,16 @@ class Robot : public frc::TimedRobot {
     double confidence = 0.0;
     frc::Color matchedColor = m_colorMatcher.MatchClosestColor(detectedColor, confidence);
 
-    if (matchedColor == kBlueTarget) {  // I hate that I can't use a switch statement
+    if (matchedColor == kBlueTarget)  // I hate that I can't use a switch statement
+    {  
       colorName = "Blue";
     }
-    else if (matchedColor == kRedTarget) {
+    else if (matchedColor == kRedTarget) 
+    {
       colorName = "Red";
     }
-    else {
+    else 
+    {
       colorName = "Unknown";
     }
 
@@ -241,42 +252,51 @@ class Robot : public frc::TimedRobot {
     frc::SmartDashboard::PutNumber("Confidence", confidence);
     frc::SmartDashboard::PutString("Detected Color", colorName);
 
+    #pragma endregion
 
 
-
+    #pragma region // Limelight code
 
     // TESTING LIMELIGHT ALIGN CODE
 
     // Rotational Tracking
-    if (m_rightStick.GetRawButton(1)){
+    if (m_rightStick.GetRawButton(1)) 
+    {
       nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",0);
       double tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
       double ta = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ta", 0.0);
       double tv = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tv", 0.0);
 
-      if (!(tx < 6 && tx > -6)){
+      if (!(tx < 6 && tx > -6)) 
+      {
         tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-        if (tx > 6){
+        if (tx > 6) 
+        {
           tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
           m_robotDrive.TankDrive(-0.75,0.75);
         }
-        else if (tx < -6){
+        else if (tx < -6) 
+        {
           tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
           m_robotDrive.TankDrive(0.75,-0.75);
         }
       }
-      else if (!(tx < 3 && tx > -3)){
+      else if (!(tx < 3 && tx > -3)) 
+      {
         tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-        if (tx > 3){
+        if (tx > 3) 
+        {
           tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
           m_robotDrive.TankDrive(-0.55,0.55);
         }
-        else if (tx < -3){
+        else if (tx < -3) 
+        {
           tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
           m_robotDrive.TankDrive(0.5,-0.55);
         }
       }
-      else {
+      else 
+      {
         tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
         m_robotDrive.TankDrive(0,0);
       }
@@ -303,7 +323,8 @@ class Robot : public frc::TimedRobot {
     */
         
     // Crosshair distance test code
-    if (m_leftStick.GetRawButton(1)){
+    if (m_leftStick.GetRawButton(1)) 
+    {
       double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
       double distanceAdjust = -0.2;
 
@@ -313,9 +334,9 @@ class Robot : public frc::TimedRobot {
       m_robotDrive.TankDrive(-driveCommand, -driveCommand);
     }
 
+    #pragma endregion
 
-        
-      
+
   }
 
   double EstimateDistance() {
