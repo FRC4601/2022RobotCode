@@ -11,6 +11,7 @@
 
 #include <frc/Joystick.h>
 #include <frc/TimedRobot.h>
+#include <frc/XboxController.h>
 #include <frc/drive/DifferentialDrive.h>
 #include <frc/motorcontrol/PWMSparkMax.h>
 #include <frc/motorcontrol/PWMVictorSPX.h>
@@ -50,6 +51,7 @@ class Robot : public frc::TimedRobot {
 
   // Initialization
   bool shooterArmPosition = false;  // false - up ~ true - down
+  bool driveCodeToggle = true;  // true - tank // false - arcade
 
   double arcadeY, arcadeX;
 
@@ -94,6 +96,8 @@ class Robot : public frc::TimedRobot {
   frc::Joystick m_leftStick{0};
   frc::Joystick m_rightStick{1};
 
+  frc::XboxController xboxController{2};
+
 
  public:
   void RobotInit() override {
@@ -101,7 +105,7 @@ class Robot : public frc::TimedRobot {
     // result in both sides moving forward. Depending on how your robot's
     // gearbox is constructed, you might have to invert the left side instead.
     m_leftMotor.SetInverted(true);
-    shooter2.SetInverted(true); // Pretty sure john put this in. Not sure of this needs inverted.
+    shooter2.SetInverted(true);
 
     // Color Match Targets
     m_colorMatcher.AddColorMatch(kBlueTarget);
@@ -110,39 +114,53 @@ class Robot : public frc::TimedRobot {
   };
 
   void TeleopPeriodic() override {
-    // Drive with tank style
-    m_robotDrive.TankDrive(m_leftStick.GetY(), m_rightStick.GetY());
+    nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",1);
 
-    // Drive with arcade style
-    frc::SmartDashboard::PutNumber("Slider Value", m_rightStick.GetRawAxis(3));
-    float sliderRawValue = m_rightStick.GetRawAxis(3);
-    float powerValue = (sliderRawValue + 1) / 2;
-    frc::SmartDashboard::PutNumber("Power Value", powerValue);
-
-    int driveInt = 0;
-
-    if (m_rightStick.GetY() >= 0.25) {
-      driveInt = -1;
+    // Toggle between tank and arcade
+    if (xboxController.GetAButtonPressed()) {
+      driveCodeToggle = !driveCodeToggle;
     }
-    else if (m_rightStick.GetY() <= -0.25) {
-      driveInt = 1;
+
+    frc::SmartDashboard::PutBoolean("Drive Toggle", driveCodeToggle);
+    
+    // Drive Code
+    if (driveCodeToggle) {
+      // Drive with tank style
+      m_robotDrive.TankDrive(m_leftStick.GetY(), m_rightStick.GetY());
     }
     else {
-      driveInt = 0;
-    }
+      // Drive with arcade style
+      frc::SmartDashboard::PutNumber("Slider Value", m_rightStick.GetRawAxis(3));
+      float sliderRawValue = m_rightStick.GetRawAxis(3);
+      float powerValue = (sliderRawValue + 1) / 2;
+      frc::SmartDashboard::PutNumber("Power Value", powerValue);
 
-    if (driveInt == 1) {
-      //m_robotDrive.ArcadeDrive(powerValue, m_rightStick.GetX(), false);
-      frc::SmartDashboard::PutString("Drive Direction", "Forward");
+      int driveInt = 0;
+
+      if (m_rightStick.GetY() >= 0.25) {
+        driveInt = -1;
+      }
+      else if (m_rightStick.GetY() <= -0.25) {
+        driveInt = 1;
+      }
+      else {
+        driveInt = 0;
+      }
+
+      if (driveInt == 1) {
+        m_robotDrive.ArcadeDrive(-powerValue, m_rightStick.GetX(), false);
+        frc::SmartDashboard::PutString("Drive Direction", "Forward");
+      }
+      else if (driveInt == -1) {
+        m_robotDrive.ArcadeDrive(powerValue, m_rightStick.GetX(), false);
+        frc::SmartDashboard::PutString("Drive Direction", "Backward");
+      }
+      else {
+        m_robotDrive.ArcadeDrive(0, m_rightStick.GetX(), false);
+        frc::SmartDashboard::PutString("Drive Direction", "N/A");
+      }
     }
-    else if (driveInt == -1) {
-      //m_robotDrive.ArcadeDrive(-powerValue, m_rightStick.GetX(), false);
-      frc::SmartDashboard::PutString("Drive Direction", "Backward");
-    }
-    else {
-      //m_robotDrive.ArcadeDrive(0, 0, false);
-      frc::SmartDashboard::PutString("Drive Direction", "N/A");
-    }
+    
 
 
     
@@ -200,7 +218,6 @@ class Robot : public frc::TimedRobot {
 
 
     // Color Match Code
-
     frc::Color detectedColor = m_colorSensor.GetColor();
 
     std::string colorName;
