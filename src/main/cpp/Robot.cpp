@@ -117,7 +117,7 @@ class Robot : public frc::TimedRobot {
     nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",1);
 
     // Toggle between tank and arcade
-    if (xboxController.GetAButtonPressed()) {
+    if (m_rightStick.GetRawButtonPressed(14)) {
       driveCodeToggle = !driveCodeToggle;
     }
 
