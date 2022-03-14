@@ -45,6 +45,8 @@ class Robot : public frc::TimedRobot {
   // Initialization
   bool shooterArmPosition = false;  // false - up ~ true - down
   bool driveCodeToggle = true;  // true - tank // false - arcade // (currently true - arcade forward //false - arcade backwards)
+  bool limelightRotation = false;
+  bool limelightDistance = false;
 
   double arcadeY, arcadeX;
 
@@ -317,7 +319,6 @@ class Robot : public frc::TimedRobot {
     
    #pragma endregion
 
-   
    #pragma region //shooter control PID
 
     // max percent output - 0.58
@@ -574,7 +575,7 @@ class Robot : public frc::TimedRobot {
     
     #pragma region // Limelight code
 
-    // Rotational Tracking
+    // Tracking
     if (m_rightStick.GetRawButton(1)) 
     {
       nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",0);
@@ -590,30 +591,37 @@ class Robot : public frc::TimedRobot {
       std::string s = std::to_string(currentDistance);
       frc::SmartDashboard::PutString("DB/String 0", s);
 
-      // distance and rotation test (limelight docs)
-      float KpAim = -0.1f;
-      float KpDistance = -0.1f;
-      float minAimCommand = 0.05f;
-      float rotationInvert = -tx;
-      float distanceInvert = -ty;
-      float steeringAdjust = 0.0f;
-      if (tx > 1.0)
-      {
-        steeringAdjust = KpAim * rotationInvert - minAimCommand; 
-      }
-
-
-      // Limelight docs
       /*
-      float distanceError = 120 - currentDistance;
-      double driveCommand = kpDistance * distanceError;
-
-      m_robotDrive.TankDrive(-driveCommand, -driveCommand);
+      * I came up with 2 ways of limelight tracking.
+      * I'm unsure which would be better in practice.
+      * My first impression is the first way would be more jerky, but more reliable.
+      * While the second may be smoother to drive, but could run into issues if bumped by another robot.
       */
-
       
-      // Test min/max
-      if (currentDistance > maxDistance)
+      // distance and rotation test
+      /*
+      * - rotates to face target
+      * - executes distance driving
+      * - pauses distance driving if robot drifts and is no longer aligned
+      */
+      int rotationError = -1;
+
+      if (!(tx < rotationError && tx > -rotationError)) 
+      {
+        tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
+        if (tx > rotationError) 
+        {
+          tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
+          m_robotDrive.TankDrive(-0.55,0.55);
+        }
+        else if (tx < -rotationError) 
+        {
+          tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
+          m_robotDrive.TankDrive(0.55,-0.55);
+        }
+      }
+      // unsure if this is the cleanest way to nest these
+      else if (currentDistance > maxDistance)
       {
         m_robotDrive.TankDrive(-0.55, -0.55);
       }
@@ -625,63 +633,24 @@ class Robot : public frc::TimedRobot {
       {
         m_robotDrive.TankDrive(0, 0);
       }
-      
-      
-      
 
       /*
-      if (!(tx < 6 && tx > -6)) 
-      {
-        tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-        if (tx > 6) 
-        {
-          tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-          m_robotDrive.TankDrive(-0.75,0.75);
-        }
-        else if (tx < -6) 
-        {
-          tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-          m_robotDrive.TankDrive(0.75,-0.75);
-        }
-      }
-      else if (!(tx < 3 && tx > -3)) 
-      {
-        tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-        if (tx > 3) 
-        {
-          tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-          m_robotDrive.TankDrive(-0.55,0.55);
-        }
-        else if (tx < -3) 
-        {
-          tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-          m_robotDrive.TankDrive(0.5,-0.55);
-        }
-      }
-      else 
-      {
-        tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-        double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
-        double distanceAdjust = -0.1;
-
-        float drivingAdjust = distanceAdjust * ty;
-
-        m_robotDrive.TankDrive(-drivingAdjust, -drivingAdjust);
-      }
+      * - rotates to face target
+      * - drives to set distance
+      * - loops until both are correct
       */
-    }
+      // I want to see how this idea could work, but I don't see a practical way of doing it outside of a 'while()' loop.
+      // and that is a very bad practice in a situation like this
 
-    // Crosshair distance code
-    if (m_leftStick.GetRawButton(1)) 
-    {
-      double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
-      double distanceAdjust = -0.1;
 
-      float drivingAdjust = distanceAdjust * ty;
+      // Limelight docs
+      /*
+      float distanceError = 120 - currentDistance;
+      double driveCommand = kpDistance * distanceError;
 
-      m_robotDrive.TankDrive(-drivingAdjust, -drivingAdjust);
-    }
-        
+      m_robotDrive.TankDrive(-driveCommand, -driveCommand);
+      */
+    }  
 
     #pragma endregion
 
