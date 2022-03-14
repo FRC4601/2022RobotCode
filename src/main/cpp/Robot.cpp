@@ -254,36 +254,6 @@ class Robot : public frc::TimedRobot {
     
     #pragma endregion
 
-    #pragma region // Shooter Encoder Code (Is this redundant to falcon 500 integrated PID? Can this be used for intake arms)
-
-    /*
-    // Shooter encoder rotation control
-    m_motor.RestoreFactoryDefaults();
-    m_pidController.SetFeedbackDevice(m_alternateEncoder);
-
-    // set PID coefficients
-    m_pidController.SetP(kP);
-    m_pidController.SetI(kI);
-    m_pidController.SetD(kD);
-    m_pidController.SetIZone(kIz);
-    m_pidController.SetFF(kFF);
-    m_pidController.SetOutputRange(kMinOutput, kMaxOutput);
-
-    // use SetPosition to make shooter up/down positioning a toggle
-    if (m_leftStick.GetRawButton(2)) {
-      // if arm is down move up
-      if(shooterArmPosition){
-        m_alternateEncoder.SetPosition(-1); // These values need testing
-      }
-      else {
-        m_alternateEncoder.SetPosition(1);
-      }
-      shooterArmPosition = !shooterArmPosition;
-    }
-    */
-
-   #pragma endregion
-
     #pragma region // Shooter Control By Percent
 
     double shooterPercent;
@@ -466,6 +436,7 @@ class Robot : public frc::TimedRobot {
     #pragma endregion
 
     #pragma region //intake with color sorter
+    
     bool currentTeamColor = frc::SmartDashboard::GetBoolean("IsRedAlliance", true);
     frc::SmartDashboard::PutBoolean("Team Alliance Bool", currentTeamColor);
     std::string teamColor = "n/a";
