@@ -35,9 +35,7 @@
 #include <rev/ColorMatch.h>
 
 //FRC Pathplanner
-
-//Path
-
+#include <pathplanner/lib/PathPlanner.h>
 
 
 class Robot : public frc::TimedRobot {
@@ -46,7 +44,7 @@ class Robot : public frc::TimedRobot {
 
   // Initialization
   bool shooterArmPosition = false;  // false - up ~ true - down
-  bool driveCodeToggle = true;  // true - tank // false - arcade
+  bool driveCodeToggle = true;  // true - tank // false - arcade // (currently true - arcade forward //false - arcade backwards)
 
   double arcadeY, arcadeX;
 
@@ -64,10 +62,11 @@ class Robot : public frc::TimedRobot {
   TalonFX shooter2 = {2};
 
   // Motor controllers
-  frc::PWMVictorSPX m_leftMotor{0};
-  frc::PWMVictorSPX m_rightMotor{1};
+  frc::PWMVictorSPX m_leftMotor{1};
+  frc::PWMVictorSPX m_rightMotor{2};
   frc::PWMVictorSPX armMotor{3};
-  frc::PWMVictorSPX ballsuckingMotor{4};
+  frc::PWMVictorSPX intakeMotor{4};
+  frc::PWMVictorSPX stagingMotor{5};
 
   // Encoders
   /*
@@ -92,6 +91,13 @@ class Robot : public frc::TimedRobot {
   frc::Joystick m_rightStick{1};
   frc::XboxController xboxController{2};
 
+  int maxSpeed = 0;
+
+  //Pathplanner
+
+  //timer
+  frc::Timer m_timer; 
+  
   #pragma endregion
 
 
@@ -104,30 +110,103 @@ class Robot : public frc::TimedRobot {
     // Color Match Targets
     m_colorMatcher.AddColorMatch(kBlueTarget);
     m_colorMatcher.AddColorMatch(kRedTarget);
-    
+
+    //shooter PID control
+    /*
+    shooter1.ConfigFactoryDefault();
+    shooter2.ConfigFactoryDefault();
+    shooter2.Follow(shooter1);
+    shooter1.SetInverted(TalonFXInvertType::Clockwise);
+    shooter2.SetInverted(TalonFXInvertType::OpposeMaster);
+    shooter1.ConfigNominalOutputForward(0);
+    shooter1.ConfigNominalOutputReverse(0);
+    shooter1.ConfigPeakOutputForward(1);
+    shooter1.ConfigPeakOutputReverse(-1);
+    shooter1.Config_kF(0,0.08918); //(values need changed for kf, kp, etc.)
+    shooter1.Config_kP(0, 0.0);
+    shooter1.Config_kI(0,0.0);
+    shooter1.Config_kD(0,0.0);
+    */
   };
 
+  void AutonomousInit() override {
+    m_timer.Reset();
+    m_timer.Start();
+  };
+  
+  void AutonomousPeriodic() override {
+
+    if (m_timer.Get() < 2_s)
+    {
+      armMotor.Set(0.25);
+    }
+    else if (m_timer.Get() < 4_s)
+    {
+      m_robotDrive.ArcadeDrive(0.3, 0.0);
+      intakeMotor.Set (-0.75);
+    }
+    else if (m_timer.Get() > 4_s && m_timer.Get() < 6_s)
+    {
+      m_robotDrive.ArcadeDrive (0.0, 0.5);
+      intakeMotor.Set(0.0);
+    }
+    else if (m_timer.Get() > 6_s && m_timer.Get() < 8_s)
+    {
+    shooter1.Set(ControlMode::PercentOutput, 0.47);
+    shooter2.Set(ControlMode::PercentOutput, 0.47);
+    }
+    else if (m_timer.Get() > 8_s && m_timer.Get() < 10_s)
+    {
+    armMotor.Set(-0.3);
+    intakeMotor.Set(-0.3);
+    stagingMotor.Set(0.5);
+    }
+    else
+    {
+    shooter1.Set(ControlMode::PercentOutput, 0.0);
+    shooter2.Set(ControlMode::PercentOutput, 0.0);
+    armMotor.Set(0.0);
+    intakeMotor.Set(0.0);
+    stagingMotor.Set(0.0);
+    }
+
+  };
+
+  void TeleopInit() override {
+
+  };
+  
   void TeleopPeriodic() override {
+
+     int colorcode = 0;
+     int shooterspeed = 0;
+
+     double currentDistance = EstimateDistance();
+
+     shooterspeed = (6380 / 600) * (shooter1.GetSelectedSensorVelocity() / (1.5));
+     frc::SmartDashboard::PutNumber("Shooter Speed", shooterspeed);
+
+     //double distanceFunction = EstimateDistance();
+     frc::SmartDashboard::PutNumber("Estimated Distance", currentDistance);
+
     // Turn led off so my eyes don't burn while testing
     //nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",1);
 
+    
     #pragma region // Drive Code
 
     // Toggle between tank and arcade
     if (m_rightStick.GetRawButtonPressed(14)) {
       driveCodeToggle = !driveCodeToggle;
     }
-    frc::SmartDashboard::PutBoolean("Drive Toggle", driveCodeToggle);
+    //frc::SmartDashboard::PutBoolean("Drive Toggle", driveCodeToggle);
     
     // Drive Code
     if (driveCodeToggle) 
     {
-      // Drive with tank style
-      m_robotDrive.TankDrive(m_leftStick.GetY(), m_rightStick.GetY());
-    }
-    else 
-    {
       // Drive with arcade style
+      m_robotDrive.ArcadeDrive(m_rightStick.GetY(), -m_rightStick.GetX());
+    /*
       frc::SmartDashboard::PutNumber("Slider Value", m_rightStick.GetRawAxis(3));
       float sliderRawValue = m_rightStick.GetRawAxis(3);
       float powerValue = (sliderRawValue + 1) / 2;
@@ -163,12 +242,17 @@ class Robot : public frc::TimedRobot {
         m_robotDrive.ArcadeDrive(0, -m_rightStick.GetX(), false);
         frc::SmartDashboard::PutString("Drive Direction", "N/A");
       }
+      */
+    }
+    else 
+    {
+      // Drive with backwards arcade style
+      m_robotDrive.ArcadeDrive(-m_leftStick.GetY(), m_rightStick.GetY());
     }
     
     #pragma endregion
 
-
-    #pragma region // Shooter Encoder Code
+    #pragma region // Shooter Encoder Code (Is this redundant to falcon 500 integrated PID? Can this be used for intake arms)
 
     /*
     // Shooter encoder rotation control
@@ -198,51 +282,120 @@ class Robot : public frc::TimedRobot {
 
    #pragma endregion
 
+    #pragma region // Shooter Control By Percent
 
-    #pragma region // Shooter Control
+    double shooterPercent;
 
-    // Shooter control
-    if (m_leftStick.GetRawButton(1)) 
+    // Shooter control basic
+    shooterPercent = 0.002244 * (currentDistance) + 0.2469; //Needs Tuned with values from limelight - plot distance vs. percent output and find best fit line
+    
+    if (shooterPercent > 0.6)
+      {
+        shooterPercent = 0.6;
+      }
+    
+    if (m_rightStick.GetRawButton(3)) 
     {
-      shooter1.Set(ControlMode::PercentOutput, 0.5);
-      //shooter2.Set(ControlMode::Follower, 5); // I'm unsure exactly how the 'Follower' control mode works. Needs testing
-      shooter2.Set(ControlMode::PercentOutput, 0.5);
+      shooter1.Set(ControlMode::PercentOutput, shooterPercent);
+      shooter2.Set(ControlMode::PercentOutput, shooterPercent);
     }
-    else if (m_rightStick.GetRawButton(1)) 
+    else if (m_rightStick.GetRawButton(2)) //low dump set when intake against fender
     {
-      shooter1.Set(ControlMode::PercentOutput, 0.25);
-      //shooter2.Set(ControlMode::Follower, 5); // I'm unsure exactly how the 'Follower' control mode works. Needs testing
-      shooter2.Set(ControlMode::PercentOutput, 0.25);
+      shooter1.Set(ControlMode::PercentOutput, 0.26);
+      shooter2.Set(ControlMode::PercentOutput, 0.26);
+    }
+    else if (m_rightStick.GetRawButton(4)) 
+    {
+      shooter1.Set(ControlMode::PercentOutput, 0.47);
+      shooter2.Set(ControlMode::PercentOutput, 0.47);
     }
     else 
     {
       shooter1.Set(ControlMode::PercentOutput, 0.0);
       shooter2.Set(ControlMode::PercentOutput, 0.0);
     }
+    
+   #pragma endregion
+
+   
+   #pragma region //shooter control PID
+
+    // max percent output - 0.58
+    /*
+    if (m_rightStick.GetRawButton(7))
+    {
+      shooter1.Set(ControlMode::PercentOutput, 0.58);
+      shooter2.Set(ControlMode::PercentOutput, 0.58);
+    }
+    else
+    {
+      shooter1.Set(ControlMode::PercentOutput, 0.0);
+      shooter2.Set(ControlMode::PercentOutput, 0.0);
+    }
+    
+    if (shooterspeed > maxSpeed)
+    {
+      maxSpeed = shooterspeed;
+    }
+    frc::SmartDashboard::PutNumber("Max Speed", maxSpeed);
+    /*
+    if (m_rightStick.GetRawButtonPressed(3)) //test shooter RPM
+    {
+      shooterspeed = shooterspeed - 100; 
+    }
+    else if (m_rightStick.GetRawButtonPressed(4))
+    {
+      shooterspeed = shooterspeed + 100;
+    }
+  
+    bool shoot = false;
+
+    if (m_rightStick.GetRawButton(2))
+    {
+      shoot = true;
+    }
+    else
+    {
+      shoot = false;
+    }
+
+    if (shoot = true)
+    {
+    shooter1.Set(ctre::phoenix::motorcontrol::TalonFXControlMode::Velocity, shooterspeed);
+    }
+    else
+    {
+    shooter1.Set(ctre::phoenix::motorcontrol::TalonFXControlMode::Velocity,0);
+    }
+    
+     frc::SmartDashboard::PutNumber("Shooter RPM", shooterspeed);
+    */
 
     #pragma endregion
-
 
     #pragma region // Color Match Code
 
     // Color Match Code
     frc::Color detectedColor = m_colorSensor.GetColor();
 
-    std::string colorName;
+    std::string ballColor;
     double confidence = 0.0;
     frc::Color matchedColor = m_colorMatcher.MatchClosestColor(detectedColor, confidence);
 
     if (matchedColor == kBlueTarget)  // I hate that I can't use a switch statement
     {  
-      colorName = "Blue";
+      ballColor = "Blue";
+      colorcode = 1;
     }
     else if (matchedColor == kRedTarget) 
     {
-      colorName = "Red";
+      ballColor = "Red";
+      colorcode = 2;
     }
     else 
     {
-      colorName = "Unknown";
+      ballColor = "Unknown";
+      colorcode = 0;
     }
 
     // Use detected RGB values to calibrate
@@ -250,11 +403,175 @@ class Robot : public frc::TimedRobot {
     frc::SmartDashboard::PutNumber("Green", detectedColor.green);
     frc::SmartDashboard::PutNumber("Blue", detectedColor.blue);
     frc::SmartDashboard::PutNumber("Confidence", confidence);
-    frc::SmartDashboard::PutString("Detected Color", colorName);
+    frc::SmartDashboard::PutString("Detected Color", ballColor);
 
     #pragma endregion
 
+    #pragma region //intake code
+ 
+    //arms up and down
+    if (xboxController.GetRawButton(1))
+    {
+      armMotor.Set(-0.25);
+    }
+    else if(xboxController.GetRawButton(2))
+    {
+      armMotor.Set(0.25);
+    }
+    else if (xboxController.GetRawButton(6))
+    {
+      armMotor.Set(-0.3);
+    }
+    else 
+    {
+      armMotor.Set(0.0);
+    }
 
+    if (xboxController.GetRawButton(3))
+    {
+      intakeMotor.Set(-0.77);
+    }
+    else if (xboxController.GetRawButton(4))
+    {
+      intakeMotor.Set(0.77);
+    }
+    else if (xboxController.GetRawButton(6))
+    {
+      intakeMotor.Set(-0.3);
+    }
+    else
+    {
+      intakeMotor.Set(0.0);
+    }
+
+    if (xboxController.GetRawButton(7))
+    {
+      stagingMotor.Set(0.5);
+    }
+    else if (xboxController.GetRawButton(8))
+    {
+      stagingMotor.Set(-0.5);
+    }
+    else if (xboxController.GetRawButton(6))
+    {
+      stagingMotor.Set(0.5);
+    }
+    else
+    {
+      stagingMotor.Set(0.0);
+    }
+    
+
+    #pragma endregion
+
+    #pragma region //intake with color sorter
+    bool currentTeamColor = frc::SmartDashboard::GetBoolean("IsRedAlliance", true);
+    frc::SmartDashboard::PutBoolean("Team Alliance Bool", currentTeamColor);
+    std::string teamColor = "n/a";
+    if (currentTeamColor)
+    {
+      teamColor = "Red"; 
+    }
+    else {
+      teamColor = "Blue";
+    }
+
+/*
+    if (xboxController.GetRawButtonPressed(3))
+    {
+      // No ball
+      if (ballColor == "Unknown") // This case could cause issues. Requires testing
+      {
+        intakeMotor.Set(-0.75);
+        stagingMotor.Set(0.5);
+      }
+      // Bad ball
+      else if (ballColor != teamColor)
+      {
+        intakeMotor.Set(-0.75);
+        stagingMotor.Set(0.5);
+      }
+      // Good ball
+      else if (ballColor == teamColor)
+      {
+        intakeMotor.Set(-0.75);
+        stagingMotor.Set(0.0);
+      }
+    }
+    else if (xboxController.GetRawButton(4))
+    {
+      intakeMotor.Set(0.75);
+      stagingMotor.Set(-0.5);
+    }
+    else if (xboxController.GetRawButton(6))
+    {
+      stagingMotor.Set(0.5);
+    }
+    else
+    {
+      intakeMotor.Set(0.0);
+      stagingMotor.Set(0.0);
+    }
+    */
+    
+    
+    
+    /*
+
+    if (xboxController.GetRawButton(3))
+    {
+      if (colorcode = 0)
+      {
+        intakeMotor.Set(-0.75);
+        stagingMotor.Set(0.5);
+      }
+      else if (colorcode = 1)
+      {
+        intakeMotor.Set(-0.75);
+        stagingMotor.Set(0.5);
+      }
+      else if (colorcode = 2)
+      {
+        intakeMotor.Set(-0.75);
+        stagingMotor.Set(0.0);
+      }
+    }
+    else if (xboxController.GetRawButton(4))
+    {
+      intakeMotor.Set(0.75);
+      stagingMotor.Set(-0.5);
+    }
+    else if (xboxController.GetRawButton(6))
+    {
+      stagingMotor.Set(0.5);
+    }
+    else
+    {
+      intakeMotor.Set(0.0);
+      stagingMotor.Set(0.0);
+    }
+    
+    //arms up and down
+    if (xboxController.GetRawButton(1))
+    {
+      armMotor.Set(-0.25);
+    }
+    else if(xboxController.GetRawButton(2))
+    {
+      armMotor.Set(0.25);
+    }
+    else if (xboxController.GetRawButton(6))
+    {
+      armMotor.Set(-0.25);
+    }
+    else 
+    {
+      armMotor.Set(0.0);
+    }
+    */
+
+    #pragma endregion
+    
     #pragma region // Limelight code
 
     // Rotational Tracking
@@ -264,7 +581,55 @@ class Robot : public frc::TimedRobot {
       double tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
       double ta = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ta", 0.0);
       double tv = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tv", 0.0);
+      double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
+      double minDistance = 100;
+      double maxDistance = 150;
+      double currentDistance = EstimateDistance();
+      float kpDistance = -0.5f;
 
+      std::string s = std::to_string(currentDistance);
+      frc::SmartDashboard::PutString("DB/String 0", s);
+
+      // distance and rotation test (limelight docs)
+      float KpAim = -0.1f;
+      float KpDistance = -0.1f;
+      float minAimCommand = 0.05f;
+      float rotationInvert = -tx;
+      float distanceInvert = -ty;
+      float steeringAdjust = 0.0f;
+      if (tx > 1.0)
+      {
+        steeringAdjust = KpAim * rotationInvert - minAimCommand; 
+      }
+
+
+      // Limelight docs
+      /*
+      float distanceError = 120 - currentDistance;
+      double driveCommand = kpDistance * distanceError;
+
+      m_robotDrive.TankDrive(-driveCommand, -driveCommand);
+      */
+
+      
+      // Test min/max
+      if (currentDistance > maxDistance)
+      {
+        m_robotDrive.TankDrive(-0.55, -0.55);
+      }
+      else if (currentDistance < minDistance)
+      {
+        m_robotDrive.TankDrive(0.55, 0.55);
+      }
+      else
+      {
+        m_robotDrive.TankDrive(0, 0);
+      }
+      
+      
+      
+
+      /*
       if (!(tx < 6 && tx > -6)) 
       {
         tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
@@ -297,43 +662,25 @@ class Robot : public frc::TimedRobot {
       {
         tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
         double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
-        double distanceAdjust = -0.2;
+        double distanceAdjust = -0.1;
 
         float drivingAdjust = distanceAdjust * ty;
 
         m_robotDrive.TankDrive(-drivingAdjust, -drivingAdjust);
       }
+      */
     }
 
     // Crosshair distance code
     if (m_leftStick.GetRawButton(1)) 
     {
       double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
-      double distanceAdjust = -0.2;
+      double distanceAdjust = -0.1;
 
       float drivingAdjust = distanceAdjust * ty;
 
       m_robotDrive.TankDrive(-drivingAdjust, -drivingAdjust);
     }
-
-    // Distance Tracking
-    /*
-    double desiredDistance = 15; // Most likely in feet? needs testings
-    double currentDistance = EstimateDistance();
-
-    if (desiredDistance > currentDistance){
-      m_robotDrive.TankDrive(0.55,0.55);  // Backup
-    }
-    else if (desiredDistance < currentDistance){
-      m_robotDrive.TankDrive(-0.55,-0.55);  // Move Forward
-    }
-    else {
-      m_robotDrive.TankDrive(1,1);
-    }
-
-    std::string s = std::to_string(currentDistance);
-    frc::SmartDashboard::PutString("DB/String 0", s);
-    */
         
 
     #pragma endregion
@@ -343,18 +690,19 @@ class Robot : public frc::TimedRobot {
 
   double EstimateDistance() {
     double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty",0.0);
-    double h2 = 55; // Height of target = 98.25
-    double h1 = 9; // Height of camera from floor = 26.13
-    double a1 = 10;  // Yaw of camera = 0
+    double h2 = 104; // Height of target
+    double h1 = 23.75; // Height of camera from floor
+    double a1 = 31;  // Yaw of camera
 
     // Based off limelight docs
     double angleToGoalDegrees = a1 + ty;
     double angleToGoalRadians = angleToGoalDegrees * (3.14159 / 180.0);
-    double d = (h2 - h1)/ tan(angleToGoalDegrees);
+    double d = (h2 - h1)/ tan(angleToGoalRadians);
 
     //double d = (h2 - h1) / tan(a1 + ty);
     return d;
     //D Returns in inches
+
   }
 
   /*
