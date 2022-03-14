@@ -45,8 +45,6 @@ class Robot : public frc::TimedRobot {
   // Initialization
   bool shooterArmPosition = false;  // false - up ~ true - down
   bool driveCodeToggle = true;  // true - tank // false - arcade // (currently true - arcade forward //false - arcade backwards)
-  bool limelightRotation = false;
-  bool limelightDistance = false;
 
   double arcadeY, arcadeX;
 
@@ -69,21 +67,6 @@ class Robot : public frc::TimedRobot {
   frc::PWMVictorSPX armMotor{3};
   frc::PWMVictorSPX intakeMotor{4};
   frc::PWMVictorSPX stagingMotor{5};
-
-  // Encoders
-  /*
-  static constexpr int kCanID = 1;
-  static constexpr auto kMotorType = rev::CANSparkMax::MotorType::kBrushless;
-  static constexpr auto kAltEncType = rev::CANEncoder::AlternateEncoderType::kQuadrature;
-  static constexpr int kCPR = 8192;
-
-  rev::CANSparkMax m_motor{kCanID, kMotorType};
-  rev::SparkMaxAlternateEncoder m_alternateEncoder = m_motor.GetAlternateEncoder(kAltEncType, kCPR);
-  rev::SparkMaxPIDController m_pidController = m_motor.GetPIDController();
-
-  // PID coefficients
-  double kP = 0.1, kI = 1e-4, kD = 1, kIz = 0, kFF = 0, kMaxOutput = 1, kMinOutput = -1;
-  */
 
   // Robot Drive
   frc::DifferentialDrive m_robotDrive{m_leftMotor, m_rightMotor};
@@ -436,7 +419,7 @@ class Robot : public frc::TimedRobot {
     #pragma endregion
 
     #pragma region //intake with color sorter
-    
+
     bool currentTeamColor = frc::SmartDashboard::GetBoolean("IsRedAlliance", true);
     frc::SmartDashboard::PutBoolean("Team Alliance Bool", currentTeamColor);
     std::string teamColor = "n/a";
