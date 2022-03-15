@@ -90,7 +90,7 @@ class Robot : public frc::TimedRobot {
   void RobotInit() override {
     // Motor inverts
     m_leftMotor.SetInverted(true);
-    shooter2.SetInverted(true);
+   shooter2.SetInverted(true);
 
     // Color Match Targets
     m_colorMatcher.AddColorMatch(kBlueTarget);
@@ -99,7 +99,7 @@ class Robot : public frc::TimedRobot {
     //shooter PID control
     /*
     shooter1.ConfigFactoryDefault();
-    shooter2.ConfigFactoryDefault();
+   shooter2.ConfigFactoryDefault();
     shooter2.Follow(shooter1);
     shooter1.SetInverted(TalonFXInvertType::Clockwise);
     shooter2.SetInverted(TalonFXInvertType::OpposeMaster);
@@ -107,7 +107,7 @@ class Robot : public frc::TimedRobot {
     shooter1.ConfigNominalOutputReverse(0);
     shooter1.ConfigPeakOutputForward(1);
     shooter1.ConfigPeakOutputReverse(-1);
-    shooter1.Config_kF(0,0.08918); //(values need changed for kf, kp, etc.)
+    shooter1.Config_kF(0,0.0801); //(values need changed for kf, kp, etc.)
     shooter1.Config_kP(0, 0.0);
     shooter1.Config_kI(0,0.0);
     shooter1.Config_kD(0,0.0);
@@ -266,8 +266,8 @@ class Robot : public frc::TimedRobot {
     }
     else 
     {
-      shooter1.Set(ControlMode::PercentOutput, 0.15);
-      shooter2.Set(ControlMode::PercentOutput, 0.15);
+      shooter1.Set(ControlMode::PercentOutput, 0.0);
+      shooter2.Set(ControlMode::PercentOutput, 0.0);
     }
     
    #pragma endregion
