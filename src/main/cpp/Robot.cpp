@@ -54,8 +54,8 @@ class Robot : public frc::TimedRobot {
   rev::ColorMatch m_colorMatcher;
 
   // Color Targets (values need calibrated)
-  static constexpr frc::Color kBlueTarget = frc::Color(0.143, 0.427, 0.429);
-  static constexpr frc::Color kRedTarget = frc::Color(0.561, 0.232, 0.114);  
+  static constexpr frc::Color kBlueTarget = frc::Color(0.146, 0.375, 0.478);
+  static constexpr frc::Color kRedTarget = frc::Color(0.579, 0.315, 0.107);  
 
   // Talon
   TalonFX shooter1 = {1}; // number refers to device id. Can be found in Tuner
@@ -120,7 +120,7 @@ class Robot : public frc::TimedRobot {
   };
   
   void AutonomousPeriodic() override {
-
+      /*
     if (m_timer.Get() < 2_s)
     {
       armMotor.Set(0.25);
@@ -154,7 +154,7 @@ class Robot : public frc::TimedRobot {
     intakeMotor.Set(0.0);
     stagingMotor.Set(0.0);
     }
-
+*/
   };
 
   void TeleopInit() override {
@@ -266,8 +266,8 @@ class Robot : public frc::TimedRobot {
     }
     else 
     {
-      shooter1.Set(ControlMode::PercentOutput, 0.0);
-      shooter2.Set(ControlMode::PercentOutput, 0.0);
+      shooter1.Set(ControlMode::PercentOutput, 0.15);
+      shooter2.Set(ControlMode::PercentOutput, 0.15);
     }
     
    #pragma endregion
@@ -336,17 +336,17 @@ class Robot : public frc::TimedRobot {
     double confidence = 0.0;
     frc::Color matchedColor = m_colorMatcher.MatchClosestColor(detectedColor, confidence);
 
-    if (matchedColor == kBlueTarget)  // I hate that I can't use a switch statement
+    if (matchedColor == kBlueTarget && confidence > 0.85)  // I hate that I can't use a switch statement
     {  
       ballColor = "Blue";
       colorcode = 1;
     }
-    else if (matchedColor == kRedTarget) 
+    else if (matchedColor == kRedTarget && confidence > 0.85) 
     {
       ballColor = "Red";
       colorcode = 2;
     }
-    else 
+    else if (confidence < 0.85)
     {
       ballColor = "Unknown";
       colorcode = 0;
@@ -414,7 +414,7 @@ class Robot : public frc::TimedRobot {
     {
       stagingMotor.Set(0.0);
     }
-    
+  
 
     #pragma endregion
 
@@ -432,7 +432,7 @@ class Robot : public frc::TimedRobot {
     }
 
 /*
-    if (xboxController.GetRawButtonPressed(3))
+    if (xboxController.GetRawButton(10))
     {
       // No ball
       if (ballColor == "Unknown") // This case could cause issues. Requires testing
@@ -467,8 +467,8 @@ class Robot : public frc::TimedRobot {
       intakeMotor.Set(0.0);
       stagingMotor.Set(0.0);
     }
-    */
     
+    */
     
     
     /*
