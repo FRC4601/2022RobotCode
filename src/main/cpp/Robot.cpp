@@ -6,8 +6,12 @@
 #include <frc/TimedRobot.h>
 #include <frc/XboxController.h>
 #include <frc/drive/DifferentialDrive.h>
+#include <frc/motorcontrol/Spark.h>
 #include <frc/motorcontrol/PWMSparkMax.h>
 #include <frc/motorcontrol/PWMVictorSPX.h>
+#include <frc/controller/PIDController.h>
+#include <cameraserver/CameraServer.h>
+#include <frc/DigitalInput.h>
 
 // CTRE Docs - https://docs.ctre-phoenix.com/en/stable/ch05a_CppJava.html
 #include <ctre/Phoenix.h>
@@ -16,6 +20,7 @@
 #include <memory>
 #include <string.h>
 #include <cstdlib>
+#include <cmath>
 
 // Limelight directives
 // API - https://docs.limelightvision.io/en/latest/getting_started.html
@@ -25,6 +30,7 @@
 #include "networktables/NetworkTableEntry.h"
 #include "networktables/NetworkTableValue.h"
 #include "wpi/span.h"
+#include <wpi/PortForwarder.h>
 
 // Rev directives
 // API - https://codedocs.revrobotics.com/cpp/namespacerev.html -/- Relative Encoder Class https://codedocs.revrobotics.com/cpp/classrev_1_1_relative_encoder.html
@@ -34,8 +40,19 @@
 #include <rev/ColorSensorV3.h>
 #include <rev/ColorMatch.h>
 
+#include <frc/DutyCycleEncoder.h>
+#include <frc/Encoder.h>
+
 //FRC Pathplanner
 #include <pathplanner/lib/PathPlanner.h>
+
+//Gyro https://juchong.github.io/ADIS16470-RoboRIO-Driver/classfrc_1_1_a_d_i_s16470___i_m_u.html
+//#include <adi/ADIS16470_IMU.h>
+
+//driverstation
+#include <frc/DriverStation.h>
+#include <hal/DriverStation.h>
+#include <hal/DriverStationTypes.h>
 
 
 class Robot : public frc::TimedRobot {
@@ -45,7 +62,7 @@ class Robot : public frc::TimedRobot {
   // Initialization
   bool shooterArmPosition = false;  // false - up ~ true - down
   bool driveCodeToggle = true;  // true - tank // false - arcade // (currently true - arcade forward //false - arcade backwards)
-
+  bool flyWheelToggle = true;
   double arcadeY, arcadeX;
 
   // Color Sensor
@@ -62,11 +79,13 @@ class Robot : public frc::TimedRobot {
   TalonFX shooter2 = {2};
 
   // Motor controllers
+  frc::Spark blinkin {0};
   frc::PWMVictorSPX m_leftMotor{1};
   frc::PWMVictorSPX m_rightMotor{2};
   frc::PWMVictorSPX armMotor{3};
   frc::PWMVictorSPX intakeMotor{4};
   frc::PWMVictorSPX stagingMotor{5};
+  frc::PWMVictorSPX shooter3{6};
 
   // Robot Drive
   frc::DifferentialDrive m_robotDrive{m_leftMotor, m_rightMotor};
@@ -75,6 +94,7 @@ class Robot : public frc::TimedRobot {
   frc::Joystick m_leftStick{0};
   frc::Joystick m_rightStick{1};
   frc::XboxController xboxController{2};
+  frc::PIDController pidController{0, 0, 0};
 
   int maxSpeed = 0;
 
@@ -82,7 +102,17 @@ class Robot : public frc::TimedRobot {
 
   //timer
   frc::Timer m_timer; 
-  
+
+  //Encoder
+  frc::Encoder ArmEncoder{0,1};
+
+  //Gyro
+  //frc::ADIS16470_IMU imu{frc::ADIS16470_IMU::IMUAxis::kZ, frc::SPI::Port::kOnboardCS0, frc::ADIS16470CalibrationTime::_4s};
+
+  //limit switches
+  frc::DigitalInput lSwitch1{3}; 
+  frc::DigitalInput lSwitch2{4};
+
   #pragma endregion
 
 
@@ -90,107 +120,116 @@ class Robot : public frc::TimedRobot {
   void RobotInit() override {
     // Motor inverts
     m_leftMotor.SetInverted(true);
-   shooter2.SetInverted(true);
+    armMotor.SetInverted(true);
+    intakeMotor.SetInverted(true);
+    shooter3.SetInverted(true);
 
     // Color Match Targets
     m_colorMatcher.AddColorMatch(kBlueTarget);
     m_colorMatcher.AddColorMatch(kRedTarget);
 
     //shooter PID control
-    /*
+    
     shooter1.ConfigFactoryDefault();
-   shooter2.ConfigFactoryDefault();
+    shooter2.ConfigFactoryDefault();
     shooter2.Follow(shooter1);
-    shooter1.SetInverted(TalonFXInvertType::Clockwise);
-    shooter2.SetInverted(TalonFXInvertType::OpposeMaster);
+    shooter1.SetInverted(TalonFXInvertType::CounterClockwise);
+    shooter2.SetInverted(TalonFXInvertType::Clockwise);
     shooter1.ConfigNominalOutputForward(0);
     shooter1.ConfigNominalOutputReverse(0);
     shooter1.ConfigPeakOutputForward(1);
     shooter1.ConfigPeakOutputReverse(-1);
-    shooter1.Config_kF(0,0.0801); //(values need changed for kf, kp, etc.)
-    shooter1.Config_kP(0, 0.0);
-    shooter1.Config_kI(0,0.0);
-    shooter1.Config_kD(0,0.0);
-    */
-  };
+    shooter1.Config_kF(0,0.07); 
+    shooter1.Config_kP(0, 0.1);
+    shooter1.Config_kI(0,0);
+    shooter1.Config_kD(0,0);
 
+    //limelight
+    wpi::PortForwarder::GetInstance().Add(5800, "limelight.local", 5800);
+    wpi::PortForwarder::GetInstance().Add(5801, "limelight.local", 5801);
+    wpi::PortForwarder::GetInstance().Add(5802, "limelight.local", 5802);
+    wpi::PortForwarder::GetInstance().Add(5803, "limelight.local", 5803);
+    wpi::PortForwarder::GetInstance().Add(5804, "limelight.local", 5804);
+    wpi::PortForwarder::GetInstance().Add(5805, "limelight.local", 5805);
+    
+  };
+  
+  
   void AutonomousInit() override {
     m_timer.Reset();
     m_timer.Start();
   };
   
   void AutonomousPeriodic() override {
-      /*
-    if (m_timer.Get() < 2_s)
+    
+    #pragma region //1 ball auton
+
+    if (m_timer.Get() < 3_s) //set up 3 feet off fender
     {
-      armMotor.Set(0.25);
+      shooter1.Set(ControlMode::Velocity, 2215);
+      shooter3.Set(.6);
     }
-    else if (m_timer.Get() < 4_s)
+    else if (m_timer.Get() >= 3_s && m_timer.Get() < 6_s)
     {
-      m_robotDrive.ArcadeDrive(0.3, 0.0);
-      intakeMotor.Set (-0.75);
+      shooter3.Set(1.0);
+      stagingMotor.Set(0.5);
     }
-    else if (m_timer.Get() > 4_s && m_timer.Get() < 6_s)
+    else if (m_timer.Get() >= 6_s && m_timer.Get() < 7_s)
     {
-      m_robotDrive.ArcadeDrive (0.0, 0.5);
-      intakeMotor.Set(0.0);
+      shooter1.Set(ControlMode::Velocity, 0);
+      shooter3.Set(0);
+      stagingMotor.Set(0);
     }
-    else if (m_timer.Get() > 6_s && m_timer.Get() < 8_s)
+    else if (m_timer.Get() >= 7_s && m_timer.Get() < 9_s)
     {
-    shooter1.Set(ControlMode::PercentOutput, 0.47);
-    shooter2.Set(ControlMode::PercentOutput, 0.47);
+      m_robotDrive.ArcadeDrive(0.6, 0.0);
+
     }
-    else if (m_timer.Get() > 8_s && m_timer.Get() < 10_s)
+    else if (m_timer.Get() >= 10_s && m_timer.Get() < 11_s)
     {
-    armMotor.Set(-0.3);
-    intakeMotor.Set(-0.3);
-    stagingMotor.Set(0.5);
+      m_robotDrive.ArcadeDrive(0.0, 0.0);
+
     }
-    else
-    {
-    shooter1.Set(ControlMode::PercentOutput, 0.0);
-    shooter2.Set(ControlMode::PercentOutput, 0.0);
-    armMotor.Set(0.0);
-    intakeMotor.Set(0.0);
-    stagingMotor.Set(0.0);
-    }
-*/
+
+    #pragma endregion
+
   };
 
   void TeleopInit() override {
+      
 
   };
   
   void TeleopPeriodic() override {
 
-     int colorcode = 0;
-     int shooterspeed = 0;
+    int shooterspeed = 0;
+     
+    double currentDistance = EstimateDistance();
 
-     double currentDistance = EstimateDistance();
+    frc::SmartDashboard::PutNumber("Shooter Speed", shooterspeed);
+    frc::SmartDashboard::PutNumber("Estimated Distance", currentDistance);
 
-     shooterspeed = (6380 / 600) * (shooter1.GetSelectedSensorVelocity() / (1.5));
-     frc::SmartDashboard::PutNumber("Shooter Speed", shooterspeed);
+    nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("pipeline",0);
 
-     //double distanceFunction = EstimateDistance();
-     frc::SmartDashboard::PutNumber("Estimated Distance", currentDistance);
-
-    // Turn led off so my eyes don't burn while testing
-    //nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",1);
-
-    
+ 
     #pragma region // Drive Code
 
     // Toggle between tank and arcade
     if (m_rightStick.GetRawButtonPressed(14)) {
       driveCodeToggle = !driveCodeToggle;
     }
+
+    if (xboxController.GetRawButtonPressed(12)){
+      flyWheelToggle = !flyWheelToggle;
+    }
     //frc::SmartDashboard::PutBoolean("Drive Toggle", driveCodeToggle);
     
-    // Drive Code
     if (driveCodeToggle) 
     {
       // Drive with arcade style
       m_robotDrive.ArcadeDrive(m_rightStick.GetY(), -m_rightStick.GetX());
+
+      #pragma region //drive with arcade and speed slider
     /*
       frc::SmartDashboard::PutNumber("Slider Value", m_rightStick.GetRawAxis(3));
       float sliderRawValue = m_rightStick.GetRawAxis(3);
@@ -228,6 +267,8 @@ class Robot : public frc::TimedRobot {
         frc::SmartDashboard::PutString("Drive Direction", "N/A");
       }
       */
+     #pragma endregion
+   
     }
     else 
     {
@@ -237,95 +278,41 @@ class Robot : public frc::TimedRobot {
     
     #pragma endregion
 
-    #pragma region // Shooter Control By Percent
+    #pragma region // Shooter Control
 
-    double shooterPercent;
+    double shooterVelocity;
 
-    // Shooter control basic
-    shooterPercent = 0.002244 * (currentDistance) + 0.2469; //Needs Tuned with values from limelight - plot distance vs. percent output and find best fit line
+    //shooterVelocity = 26.78 * (currentDistance) + 4493; //Could be Tuned Better//Needs Better Data//Equation for flywheel speed
     
-    if (shooterPercent > 0.6)
+    if (shooterVelocity > 9500) //limit shootervelocity to 9500 units/100ms
       {
-        shooterPercent = 0.6;
+        shooterVelocity = 9500;
       }
     
     if (m_rightStick.GetRawButton(3)) 
     {
-      shooter1.Set(ControlMode::PercentOutput, shooterPercent);
-      shooter2.Set(ControlMode::PercentOutput, shooterPercent);
+      shooter1.Set(ControlMode::Velocity, 3500); //tuned at limelight estimate distance 115
+      shooter3.Set(1);
     }
-    else if (m_rightStick.GetRawButton(2)) //low dump set when intake against fender
+    else if (m_rightStick.GetRawButton(2))
     {
-      shooter1.Set(ControlMode::PercentOutput, 0.26);
-      shooter2.Set(ControlMode::PercentOutput, 0.26);
-    }
-    else if (m_rightStick.GetRawButton(4)) 
-    {
-      shooter1.Set(ControlMode::PercentOutput, 0.47);
-      shooter2.Set(ControlMode::PercentOutput, 0.47);
+      shooter1.Set(ControlMode::Velocity, 2600);
+      shooter3.Set(.15);
     }
     else 
     {
-      shooter1.Set(ControlMode::PercentOutput, 0.0);
-      shooter2.Set(ControlMode::PercentOutput, 0.0);
+     if (flyWheelToggle){
+      shooter1.Set(ControlMode::Velocity, 0); //2500 base run
+      shooter3.Set(0.0);
+     }
+     else{
+      shooter1.Set(ControlMode::Velocity, 2000);
+      shooter3.Set(0.15);
+     }
     }
     
-   #pragma endregion
-
-   #pragma region //shooter control PID
-
-    // max percent output - 0.58
-    /*
-    if (m_rightStick.GetRawButton(7))
-    {
-      shooter1.Set(ControlMode::PercentOutput, 0.58);
-      shooter2.Set(ControlMode::PercentOutput, 0.58);
-    }
-    else
-    {
-      shooter1.Set(ControlMode::PercentOutput, 0.0);
-      shooter2.Set(ControlMode::PercentOutput, 0.0);
-    }
-    
-    if (shooterspeed > maxSpeed)
-    {
-      maxSpeed = shooterspeed;
-    }
-    frc::SmartDashboard::PutNumber("Max Speed", maxSpeed);
-    /*
-    if (m_rightStick.GetRawButtonPressed(3)) //test shooter RPM
-    {
-      shooterspeed = shooterspeed - 100; 
-    }
-    else if (m_rightStick.GetRawButtonPressed(4))
-    {
-      shooterspeed = shooterspeed + 100;
-    }
-  
-    bool shoot = false;
-
-    if (m_rightStick.GetRawButton(2))
-    {
-      shoot = true;
-    }
-    else
-    {
-      shoot = false;
-    }
-
-    if (shoot = true)
-    {
-    shooter1.Set(ctre::phoenix::motorcontrol::TalonFXControlMode::Velocity, shooterspeed);
-    }
-    else
-    {
-    shooter1.Set(ctre::phoenix::motorcontrol::TalonFXControlMode::Velocity,0);
-    }
-    
-     frc::SmartDashboard::PutNumber("Shooter RPM", shooterspeed);
-    */
-
     #pragma endregion
+
 
     #pragma region // Color Match Code
 
@@ -336,20 +323,17 @@ class Robot : public frc::TimedRobot {
     double confidence = 0.0;
     frc::Color matchedColor = m_colorMatcher.MatchClosestColor(detectedColor, confidence);
 
-    if (matchedColor == kBlueTarget && confidence > 0.85)  // I hate that I can't use a switch statement
+    if (matchedColor == kBlueTarget && confidence > 0.85)  
     {  
       ballColor = "Blue";
-      colorcode = 1;
     }
     else if (matchedColor == kRedTarget && confidence > 0.85) 
     {
       ballColor = "Red";
-      colorcode = 2;
     }
     else if (confidence < 0.85)
     {
       ballColor = "Unknown";
-      colorcode = 0;
     }
 
     // Use detected RGB values to calibrate
@@ -361,254 +345,210 @@ class Robot : public frc::TimedRobot {
 
     #pragma endregion
 
-    #pragma region //intake code
- 
-    //arms up and down
+
+    #pragma region //intake arm code
+    
+    int armAngle;
+    armAngle = ArmEncoder.GetRaw();
+    ArmEncoder.SetDistancePerPulse(360/8192);
+    ArmEncoder.SetMinRate(10);
+    ArmEncoder.SetSamplesToAverage(5);
+    ArmEncoder.SetReverseDirection(true);
+    frc::SmartDashboard::PutNumber("EncoderValue", armAngle);
+
+   
+    // armMotor
     if (xboxController.GetRawButton(1))
     {
-      armMotor.Set(-0.25);
+      if(armAngle > 1000)
+      {
+      armMotor.Set(0.25);
+      }
+      else if(armAngle < 1000)
+      {
+        armMotor.Set(0.0);
+      }
+      
     }
     else if(xboxController.GetRawButton(2))
     {
-      armMotor.Set(0.25);
+      if (armAngle < 1400)
+      {
+        armMotor.Set(-0.25);
+      }
+      else if (armAngle > 1400)
+      {
+        armMotor.Set(0.0);
+      }
     }
     else if (xboxController.GetRawButton(6))
     {
-      armMotor.Set(-0.3);
+      if(armAngle > 1000)
+      {
+      armMotor.Set(0.25);
+      }
+      else if(armAngle < 1000)
+      {
+        armMotor.Set(0.0);
+      }
     }
     else 
     {
       armMotor.Set(0.0);
     }
 
-    if (xboxController.GetRawButton(3))
-    {
-      intakeMotor.Set(-0.77);
-    }
-    else if (xboxController.GetRawButton(4))
-    {
-      intakeMotor.Set(0.77);
-    }
-    else if (xboxController.GetRawButton(6))
-    {
-      intakeMotor.Set(-0.3);
-    }
-    else
-    {
-      intakeMotor.Set(0.0);
-    }
-
-    if (xboxController.GetRawButton(7))
-    {
-      stagingMotor.Set(0.5);
-    }
-    else if (xboxController.GetRawButton(8))
-    {
-      stagingMotor.Set(-0.5);
-    }
-    else if (xboxController.GetRawButton(6))
-    {
-      stagingMotor.Set(0.5);
-    }
-    else
-    {
-      stagingMotor.Set(0.0);
-    }
-  
-
     #pragma endregion
 
-    #pragma region //intake with color sorter
 
-    bool currentTeamColor = frc::SmartDashboard::GetBoolean("IsRedAlliance", true);
-    frc::SmartDashboard::PutBoolean("Team Alliance Bool", currentTeamColor);
+    #pragma region //intake with color sorter (staging and intake wheels)
+
     std::string teamColor = "n/a";
-    if (currentTeamColor)
+    frc::DriverStation::Alliance alliance;
+    alliance = frc::DriverStation::GetInstance().GetAlliance();
+    frc::SmartDashboard::PutString("Alliance Color", teamColor);
+
+    if (alliance == frc::DriverStation::Alliance::kRed)
     {
       teamColor = "Red"; 
     }
-    else {
+    else if (alliance == frc::DriverStation::Alliance::kBlue)
+    {
       teamColor = "Blue";
     }
+    else
+    {
+      teamColor = "n/a";
+    }
 
-/*
-    if (xboxController.GetRawButton(10))
+
+    if (xboxController.GetRawButton(3))
     {
       // No ball
-      if (ballColor == "Unknown") // This case could cause issues. Requires testing
+      if (ballColor == "Unknown") 
       {
-        intakeMotor.Set(-0.75);
-        stagingMotor.Set(0.5);
+        intakeMotor.Set(1.0);
+        stagingMotor.Set(0.3);
       }
       // Bad ball
       else if (ballColor != teamColor)
       {
-        intakeMotor.Set(-0.75);
-        stagingMotor.Set(0.5);
+        intakeMotor.Set(1.0);
+        stagingMotor.Set(0.3);
       }
       // Good ball
       else if (ballColor == teamColor)
       {
-        intakeMotor.Set(-0.75);
+        intakeMotor.Set(1.0);
         stagingMotor.Set(0.0);
       }
     }
     else if (xboxController.GetRawButton(4))
     {
-      intakeMotor.Set(0.75);
+      intakeMotor.Set(-0.75);
       stagingMotor.Set(-0.5);
     }
     else if (xboxController.GetRawButton(6))
     {
       stagingMotor.Set(0.5);
+      intakeMotor.Set(0.3);
     }
     else
     {
       intakeMotor.Set(0.0);
       stagingMotor.Set(0.0);
     }
-    
-    */
-    
-    
-    /*
-
-    if (xboxController.GetRawButton(3))
-    {
-      if (colorcode = 0)
-      {
-        intakeMotor.Set(-0.75);
-        stagingMotor.Set(0.5);
-      }
-      else if (colorcode = 1)
-      {
-        intakeMotor.Set(-0.75);
-        stagingMotor.Set(0.5);
-      }
-      else if (colorcode = 2)
-      {
-        intakeMotor.Set(-0.75);
-        stagingMotor.Set(0.0);
-      }
-    }
-    else if (xboxController.GetRawButton(4))
-    {
-      intakeMotor.Set(0.75);
-      stagingMotor.Set(-0.5);
-    }
-    else if (xboxController.GetRawButton(6))
-    {
-      stagingMotor.Set(0.5);
-    }
-    else
-    {
-      intakeMotor.Set(0.0);
-      stagingMotor.Set(0.0);
-    }
-    
-    //arms up and down
-    if (xboxController.GetRawButton(1))
-    {
-      armMotor.Set(-0.25);
-    }
-    else if(xboxController.GetRawButton(2))
-    {
-      armMotor.Set(0.25);
-    }
-    else if (xboxController.GetRawButton(6))
-    {
-      armMotor.Set(-0.25);
-    }
-    else 
-    {
-      armMotor.Set(0.0);
-    }
-    */
 
     #pragma endregion
+    
     
     #pragma region // Limelight code
 
     // Tracking
     if (m_rightStick.GetRawButton(1)) 
     {
-      nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",0);
+      nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("pipeline",0);
+      //nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode", 1);
       double tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
       double ta = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ta", 0.0);
       double tv = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tv", 0.0);
       double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
       double minDistance = 100;
-      double maxDistance = 150;
+      double maxDistance = 125;
       double currentDistance = EstimateDistance();
       float kpDistance = -0.5f;
 
       std::string s = std::to_string(currentDistance);
       frc::SmartDashboard::PutString("DB/String 0", s);
 
-      /*
-      * I came up with 2 ways of limelight tracking.
-      * I'm unsure which would be better in practice.
-      * My first impression is the first way would be more jerky, but more reliable.
-      * While the second may be smoother to drive, but could run into issues if bumped by another robot.
-      */
+
+      pidController.SetP(0.0365); //Warren known decent values 0.0365, 0.007, 0.0
+      pidController.SetI(0.007);
+      pidController.SetD(0.0);
+      pidController.SetSetpoint(0);
+
+      // rotational pid loop
+      float offset = pidController.Calculate(tx);
+      if (abs(tx) > 1 && offset >= 0.25)  // adding offset to this could cause issues
+      {
+        float offset = pidController.Calculate(tx);
+        m_robotDrive.TankDrive(offset, -offset);
+      }
       
-      // distance and rotation test
-      /*
-      * - rotates to face target
-      * - executes distance driving
-      * - pauses distance driving if robot drifts and is no longer aligned
-      */
-      int rotationError = -1;
-
-      if (!(tx < rotationError && tx > -rotationError)) 
+      // idea: use offset to calculate when robot is aligned. then execute distance code based on that
+      float offset = pidController.Calculate(tx);
+      if (offset < 0.25)  // value needs calibrating // should execute when aligned
       {
-        tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-        if (tx > rotationError) 
+        // min/max distance code
+        if (currentDistance > maxDistance)
         {
-          tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-          m_robotDrive.TankDrive(-0.55,0.55);
+          m_robotDrive.TankDrive(-0.55, -0.55);
         }
-        else if (tx < -rotationError) 
+        else if (currentDistance < minDistance)
         {
-          tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
-          m_robotDrive.TankDrive(0.55,-0.55);
+          m_robotDrive.TankDrive(0.55, 0.55);
+        }
+        else
+        {
+          m_robotDrive.TankDrive(0, 0);
         }
       }
-      // unsure if this is the cleanest way to nest these
-      else if (currentDistance > maxDistance)
-      {
-        m_robotDrive.TankDrive(-0.55, -0.55);
-      }
-      else if (currentDistance < minDistance)
-      {
-        m_robotDrive.TankDrive(0.55, 0.55);
-      }
-      else
-      {
-        m_robotDrive.TankDrive(0, 0);
-      }
-
-      /*
-      * - rotates to face target
-      * - drives to set distance
-      * - loops until both are correct
-      */
-      // I want to see how this idea could work, but I don't see a practical way of doing it outside of a 'while()' loop.
-      // and that is a very bad practice in a situation like this
-
-
-      // Limelight docs
-      /*
-      float distanceError = 120 - currentDistance;
-      double driveCommand = kpDistance * distanceError;
-
-      m_robotDrive.TankDrive(-driveCommand, -driveCommand);
-      */
     }  
-
+    
     #pragma endregion
 
 
+    #pragma region //Color Codes
+
+    if (m_rightStick.GetRawButton(1)) //limelight tracking
+    {
+      blinkin.Set(0.73);
+    }
+    else if (m_rightStick.GetRawButton(2)) //low dump flywheel
+    {
+      blinkin.Set(-0.57);
+    }
+    else if (m_rightStick.GetRawButton(3)) //high shot flywheel
+    {
+       blinkin.Set(-0.05);
+
+    }
+    else if (xboxController.GetRawButton(6)) //fire
+    {
+      blinkin.Set(-0.07);
+    }
+    else
+    {
+      if (alliance == frc::DriverStation::Alliance::kRed)
+        {
+          blinkin.Set(-0.11);
+        } 
+      else if (alliance == frc::DriverStation::Alliance::kBlue)
+      {
+        blinkin.Set(-0.09);
+      }
+    }
+    
+    #pragma endregion
   }
 
   double EstimateDistance() {
@@ -644,6 +584,17 @@ class Robot : public frc::TimedRobot {
     theta = 180 * theta / pi;
     return theta;
   }*/
+void DisabledInit() override
+  {
+  };
+
+void DisabledPeriodic() override
+  {
+  //Turn limelight led off
+  //nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode",1); 
+  //addressable LED Color Settings found at https://www.revrobotics.com/content/docs/REV-11-1105-UM.pdf
+  };
+
 };
 
 #ifndef RUNNING_FRC_TESTS
