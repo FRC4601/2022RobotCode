@@ -43,11 +43,16 @@
 #include <frc/DutyCycleEncoder.h>
 #include <frc/Encoder.h>
 
+// Pathplanner only helps write paths. In order to execute follow the wpilib trajectory
+// https://docs.wpilib.org/en/stable/docs/software/pathplanning/trajectory-tutorial/trajectory-tutorial-overview.html
 //FRC Pathplanner
 #include <pathplanner/lib/PathPlanner.h>
 
+// WPILIB Trajectory
+#include <frc/kinematics/DifferentialDriveKinematics.h>
+
 //Gyro https://juchong.github.io/ADIS16470-RoboRIO-Driver/classfrc_1_1_a_d_i_s16470___i_m_u.html
-//#include <adi/ADIS16470_IMU.h>
+#include <frc/ADIS16470_IMU.h>
 
 //driverstation
 #include <frc/DriverStation.h>
@@ -107,17 +112,41 @@ class Robot : public frc::TimedRobot {
   frc::Encoder ArmEncoder{0,1};
 
   //Gyro
-  //frc::ADIS16470_IMU imu{frc::ADIS16470_IMU::IMUAxis::kZ, frc::SPI::Port::kOnboardCS0, frc::ADIS16470CalibrationTime::_4s};
+  frc::ADIS16470_IMU imu{frc::ADIS16470_IMU::IMUAxis::kZ, frc::SPI::Port::kOnboardCS0, frc::ADIS16470_IMU::CalibrationTime::_4s};
 
   //limit switches
   frc::DigitalInput lSwitch1{3}; 
   frc::DigitalInput lSwitch2{4};
+
+  //WPILIB Trajectory
+  //constexpr auto ks = 0.0_V; 
+  // Writing in here causes issues and idk why
 
   #pragma endregion
 
 
  public:
   void RobotInit() override {
+    
+    //WPILIB Trajectory
+    // DO NOT USE THESE VALUES!! THESE ARE PLACEHOLDERS UNTIL WE HAVE TIME TO CALCULATE OUR OWN
+    constexpr auto ks = 0.22_V;
+    constexpr auto kv = 1.98 * 1_V * 1_s / 1_m;
+    constexpr auto ka = 0.2 * 1_V * 1_s * 1_s / 1_m;
+    
+    constexpr double kPDriveVel = 8.5;
+    
+    constexpr auto kTrackWidth = 0.69_m;
+    extern const frc::DifferentialDriveKinematics kDriveKinematics;
+
+    constexpr auto kMaxSpeed = 3_mps;
+    constexpr auto kMaxAcceleration = 3_mps_sq;
+
+    // These values should work with most robots.
+    // If having issues, tune them here - https://docs.wpilib.org/en/stable/docs/software/advanced-controls/trajectories/ramsete.html#constructing-the-ramsete-controller-object
+    constexpr double kRamseteB = 2;
+    constexpr double kRamseteZeta = 0.7;
+
     // Motor inverts
     m_leftMotor.SetInverted(true);
     armMotor.SetInverted(true);
@@ -162,6 +191,13 @@ class Robot : public frc::TimedRobot {
   
   void AutonomousPeriodic() override {
     
+    #pragma region // Pathplanner auton
+    // idea: can create multiple paths with shoot commands added inbetween them
+
+    pathplanner::PathPlannerTrajectory testPath = pathplanner::PathPlanner::loadPath("Test Path", 7_mps, 4_mps_sq);
+
+    #pragma endregion
+
     #pragma region //1 ball auton
 
     if (m_timer.Get() < 3_s) //set up 3 feet off fender
@@ -215,12 +251,9 @@ class Robot : public frc::TimedRobot {
     #pragma region // Drive Code
 
     // Toggle between tank and arcade
-    if (m_rightStick.GetRawButtonPressed(14)) {
+    if (m_rightStick.GetRawButtonPressed(14)) 
+    {
       driveCodeToggle = !driveCodeToggle;
-    }
-
-    if (xboxController.GetRawButtonPressed(12)){
-      flyWheelToggle = !flyWheelToggle;
     }
     //frc::SmartDashboard::PutBoolean("Drive Toggle", driveCodeToggle);
     
@@ -273,7 +306,7 @@ class Robot : public frc::TimedRobot {
     else 
     {
       // Drive with backwards arcade style
-      m_robotDrive.ArcadeDrive(-m_leftStick.GetY(), m_rightStick.GetY());
+      m_robotDrive.ArcadeDrive(-m_leftStick.GetY(), m_rightStick.GetX());
     }
     
     #pragma endregion
@@ -281,6 +314,11 @@ class Robot : public frc::TimedRobot {
     #pragma region // Shooter Control
 
     double shooterVelocity;
+
+    if (xboxController.GetRawButtonPressed(12))
+    {
+      flyWheelToggle = !flyWheelToggle;
+    }
 
     //shooterVelocity = 26.78 * (currentDistance) + 4493; //Could be Tuned Better//Needs Better Data//Equation for flywheel speed
     
@@ -488,7 +526,7 @@ class Robot : public frc::TimedRobot {
 
       // rotational pid loop
       float offset = pidController.Calculate(tx);
-      if (abs(tx) > 1 && offset >= 0.25)  // adding offset to this could cause issues
+      if (abs(tx) > 1 && offset >= 0.25)  // adding offset to this could cause issues. added to try to prevent issue between this and distance
       {
         float offset = pidController.Calculate(tx);
         m_robotDrive.TankDrive(offset, -offset);
@@ -547,7 +585,7 @@ class Robot : public frc::TimedRobot {
         blinkin.Set(-0.09);
       }
     }
-    
+
     #pragma endregion
   }
 
