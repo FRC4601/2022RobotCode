@@ -129,6 +129,9 @@ frc::DigitalInput lSwitch2{4};
 
 #pragma endregion
 
+
+#pragma region  // wpilib trajectory code
+
 // idk if this is the best place for these.
 // I would place them inside their own header file but I run into issues
 //WPILIB Trajectory
@@ -229,8 +232,8 @@ class DriveSubsystem : public frc2::SubsystemBase {
 DriveSubsystem::DriveSubsystem()
   : m_leftMotor{1},
     m_rightMotor{2},
-    m_leftEncoder{kLeftEncoderPorts[0], kLeftEncoderPorts[1]},
-    m_rightEncoder{kRightEncoderPorts[0], kRightEncoderPorts[1]},
+    m_leftEncoder{0, 1},
+    m_rightEncoder{0, 1},
     m_odometry{m_gyro.GetAngle()} {  // By default GetAngle() calculates Y axis. This could be wrong angle for this purpose idk
 
       // Depending on our drivetrain, may need to invert left instead
@@ -294,6 +297,9 @@ void DriveSubsystem::ResetOdometry(frc::Pose2d pose) {
   ResetEncoders();
   m_odometry.ResetPosition(pose, m_gyro.GetAngle());
 }
+
+#pragma endregion
+
 
 class Robot : public frc::TimedRobot {
  public:
