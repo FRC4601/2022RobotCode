@@ -50,6 +50,14 @@
 
 // WPILIB Trajectory
 #include <frc/kinematics/DifferentialDriveKinematics.h>
+#include <frc/Encoder.h>
+#include <frc/geometry/Pose2d.h>
+#include <frc/kinematics/DifferentialDriveOdometry.h>
+#include <frc/motorcontrol/MotorControllerGroup.h>
+#include <frc2/command/SubsystemBase.h>
+#include <units/voltage.h>
+#include <frc/geometry/Rotation2d.h>
+#include <frc/kinematics/DifferentialDriveWheelSpeeds.h>
 
 //Gyro https://juchong.github.io/ADIS16470-RoboRIO-Driver/classfrc_1_1_a_d_i_s16470___i_m_u.html
 #include <frc/ADIS16470_IMU.h>
@@ -59,93 +67,237 @@
 #include <hal/DriverStation.h>
 #include <hal/DriverStationTypes.h>
 
+#pragma region // Initialization
+
+// Initialization
+bool shooterArmPosition = false;  // false - up ~ true - down
+bool driveCodeToggle = true;  // true - tank // false - arcade // (currently true - arcade forward //false - arcade backwards)
+bool flyWheelToggle = true;
+double arcadeY, arcadeX;
+
+// Color Sensor
+static constexpr auto i2cPort = frc::I2C::Port::kOnboard;
+rev::ColorSensorV3 m_colorSensor{i2cPort};
+rev::ColorMatch m_colorMatcher;
+
+// Color Targets (values need calibrated)
+static constexpr frc::Color kBlueTarget = frc::Color(0.146, 0.375, 0.478);
+static constexpr frc::Color kRedTarget = frc::Color(0.579, 0.315, 0.107);  
+
+// Talon
+TalonFX shooter1 = {1}; // number refers to device id. Can be found in Tuner
+TalonFX shooter2 = {2};
+
+// Motor controllers
+frc::Spark blinkin {0};
+frc::PWMVictorSPX m_leftMotor{1};
+frc::PWMVictorSPX m_rightMotor{2};
+frc::PWMVictorSPX armMotor{3};
+frc::PWMVictorSPX intakeMotor{4};
+frc::PWMVictorSPX stagingMotor{5};
+frc::PWMVictorSPX shooter3{6};
+
+// Robot Drive
+frc::DifferentialDrive m_robotDrive{m_leftMotor, m_rightMotor};
+
+// Joysticks
+frc::Joystick m_leftStick{0};
+frc::Joystick m_rightStick{1};
+frc::XboxController xboxController{2};
+frc::PIDController pidController{0, 0, 0};
+
+int maxSpeed = 0;
+
+//Pathplanner
+
+//timer
+frc::Timer m_timer; 
+
+//Encoder
+frc::Encoder ArmEncoder{0,1};
+
+//Gyro
+frc::ADIS16470_IMU imu{frc::ADIS16470_IMU::IMUAxis::kZ, frc::SPI::Port::kOnboardCS0, frc::ADIS16470_IMU::CalibrationTime::_4s};
+
+//limit switches
+frc::DigitalInput lSwitch1{3}; 
+frc::DigitalInput lSwitch2{4};
+
+//WPILIB Trajectory
+//constexpr auto ks = 0.0_V; 
+// Writing in here causes issues and idk why
+
+#pragma endregion
+
+// idk if this is the best place for these.
+// I would place them inside their own header file but I run into issues
+//WPILIB Trajectory
+// DO NOT USE THESE VALUES!! THESE ARE PLACEHOLDERS UNTIL WE HAVE TIME TO CALCULATE OUR OWN
+constexpr auto ks = 0.22_V;
+constexpr auto kv = 1.98 * 1_V * 1_s / 1_m;
+constexpr auto ka = 0.2 * 1_V * 1_s * 1_s / 1_m;
+    
+constexpr double kPDriveVel = 8.5;
+    
+constexpr auto kTrackWidth = 0.69_m;
+extern const frc::DifferentialDriveKinematics kDriveKinematics;
+
+constexpr auto kMaxSpeed = 3_mps;
+constexpr auto kMaxAcceleration = 3_mps_sq;
+
+// These values should work with most robots.
+// If having issues, tune them here - https://docs.wpilib.org/en/stable/docs/software/advanced-controls/trajectories/ramsete.html#constructing-the-ramsete-controller-object
+constexpr double kRamseteB = 2;
+constexpr double kRamseteZeta = 0.7;
+
+
+class DriveSubsystem : public frc2::SubsystemBase {
+  public:
+    DriveSubsystem();
+
+    void Periodic() override;
+
+    // Subsystem methods go here
+
+    // Drives the robot using arcade controls
+    void ArcadeDrive(double fwd, double rot);
+
+    // Controls each side of the robot directly with voltage
+    void TankDriveVolts(units::volt_t left, units::volt_t right);
+
+    // Resets the drive encoders to read a position of 0
+    void ResetEncoders();
+
+    // Gets the average distance of the TWO encoders
+    double GetAverageEncoderDistance();
+
+    // Gets the left drive encoder
+    frc::Encoder& GetLeftEncoder();
+
+    // Gets the right drive encoder
+    frc::Encoder& GetRightEncoder();
+
+    // Sets the max output of the drive. Useful for scaling the drive to drive more slowly
+    void SetMaxOutput(double maxOutput);
+
+    // Returns the heading of the robot
+    units::degree_t GetHeading() const;
+
+    // Return the turn rate of the robot
+    double GetTurnRate();
+
+    // Returns the currently-estimated pose of the robot
+    frc::Pose2d GetPose();
+
+    // Returns the current wheel speeds of the robot
+    frc::DifferentialDriveWheelSpeeds GetWheelSpeeds();
+
+    // Resets the odometry of the specified pose
+    void ResetOdometry(frc::Pose2d pose);
+
+  private:
+    // Components (motor controllers and sensors) should generally be
+    // declared private and exposed only through public methods
+
+    // Motor controllers
+    frc::PWMVictorSPX m_leftMotor{1};
+    frc::PWMVictorSPX m_rightMotor{2};
+
+    // Motors on the left side of the drive
+    frc::MotorControllerGroup m_leftMotorGroup{m_leftMotor};
+
+    // Motors on the right side of the drive
+    frc::MotorControllerGroup m_rightMotorGroup{m_rightMotor};
+
+    // Robot drive
+    frc::DifferentialDrive m_drive{m_leftMotorGroup, m_rightMotorGroup};  // idk if I need groups since we only have two motor controllers total
+
+    // Left-side drive encoder
+    frc::Encoder m_leftEncoder;
+
+    // Right-side drive encoder
+    frc::Encoder m_rightEncoder;
+
+    // Gyro sensor
+    frc::ADIS16470_IMU m_gyro;
+
+    // Odometry class for tracking robot pose
+    frc::DifferentialDriveOdometry m_odometry;
+    
+};
+
+DriveSubsystem::DriveSubsystem()
+  : m_leftMotor{1},
+    m_rightMotor{2},
+    m_leftEncoder{kLeftEncoderPorts[0], kLeftEncoderPorts[1]},
+    m_rightEncoder{kRightEncoderPorts[0], kRightEncoderPorts[1]},
+    m_odometry{m_gyro.GetAngle()} {  // By default GetAngle() calculates Y axis. This could be wrong angle for this purpose idk
+
+      // Depending on our drivetrain, may need to invert left instead
+      m_rightMotorGroup.SetInverted(true);
+
+      // Set the distance per pulse for the encoders
+      m_leftEncoder.SetDistancePerPulse(kEncoderDistancePerPulse);
+      m_rightEncoder.SetDistancePerPulse(kEncoderDistancePerPulse);
+
+      ResetEncoders();
+}
+
+void DriveSubsystem::Periodic() {
+  // Implementation of subsystem periodic method goes here
+  m_odometry.Update(m_gyro.GetAngle(),
+                    units::meter_t(m_leftEncoder.GetDistance()),
+                    units::meter_t(m_rightEncoder.GetDistance()));
+}
+
+void DriveSubsystem::ArcadeDrive(double fwd, double rot) {
+  m_drive.ArcadeDrive(fwd, rot);
+}
+
+void DriveSubsystem::TankDriveVolts(units::volt_t left, units::volt_t right) {
+  m_leftMotorGroup.SetVoltage(left);
+  m_rightMotorGroup.SetVoltage(right);
+  m_drive.Feed();
+}
+
+void DriveSubsystem::ResetEncoders() {
+  m_leftEncoder.Reset();
+  m_rightEncoder.Reset();
+}
+
+double DriveSubsystem::GetAverageEncoderDistance() {
+  return (m_leftEncoder.GetDistance() + m_rightEncoder.GetDistance()) / 2.0;
+}
+
+frc::Encoder& DriveSubsystem::GetLeftEncoder() {
+  return m_leftEncoder;
+}
+
+frc::Encoder& DriveSubsystem::GetRightEncoder() {
+  return m_rightEncoder;
+}
+
+void DriveSubsystem::SetMaxOutput(double maxOutput) {
+  m_drive.SetMaxOutput(maxOutput);
+}
+
+units::degree_t DriveSubsystem::GetHeading() const {
+  return m_gyro.GetAngle(); // This could cause issues if it doesn't return in degrees
+}
+
+frc::DifferentialDriveWheelSpeeds DriveSubsystem::GetWheelSpeeds() {
+  return {units::meters_per_second_t(m_leftEncoder.GetRate()),
+          units::meters_per_second_t(m_rightEncoder.GetRate())};
+}
+
+void DriveSubsystem::ResetOdometry(frc::Pose2d pose) {
+  ResetEncoders();
+  m_odometry.ResetPosition(pose, m_gyro.GetAngle());
+}
 
 class Robot : public frc::TimedRobot {
-
-  #pragma region // Initialization
-
-  // Initialization
-  bool shooterArmPosition = false;  // false - up ~ true - down
-  bool driveCodeToggle = true;  // true - tank // false - arcade // (currently true - arcade forward //false - arcade backwards)
-  bool flyWheelToggle = true;
-  double arcadeY, arcadeX;
-
-  // Color Sensor
-  static constexpr auto i2cPort = frc::I2C::Port::kOnboard;
-  rev::ColorSensorV3 m_colorSensor{i2cPort};
-  rev::ColorMatch m_colorMatcher;
-
-  // Color Targets (values need calibrated)
-  static constexpr frc::Color kBlueTarget = frc::Color(0.146, 0.375, 0.478);
-  static constexpr frc::Color kRedTarget = frc::Color(0.579, 0.315, 0.107);  
-
-  // Talon
-  TalonFX shooter1 = {1}; // number refers to device id. Can be found in Tuner
-  TalonFX shooter2 = {2};
-
-  // Motor controllers
-  frc::Spark blinkin {0};
-  frc::PWMVictorSPX m_leftMotor{1};
-  frc::PWMVictorSPX m_rightMotor{2};
-  frc::PWMVictorSPX armMotor{3};
-  frc::PWMVictorSPX intakeMotor{4};
-  frc::PWMVictorSPX stagingMotor{5};
-  frc::PWMVictorSPX shooter3{6};
-
-  // Robot Drive
-  frc::DifferentialDrive m_robotDrive{m_leftMotor, m_rightMotor};
-
-  // Joysticks
-  frc::Joystick m_leftStick{0};
-  frc::Joystick m_rightStick{1};
-  frc::XboxController xboxController{2};
-  frc::PIDController pidController{0, 0, 0};
-
-  int maxSpeed = 0;
-
-  //Pathplanner
-
-  //timer
-  frc::Timer m_timer; 
-
-  //Encoder
-  frc::Encoder ArmEncoder{0,1};
-
-  //Gyro
-  frc::ADIS16470_IMU imu{frc::ADIS16470_IMU::IMUAxis::kZ, frc::SPI::Port::kOnboardCS0, frc::ADIS16470_IMU::CalibrationTime::_4s};
-
-  //limit switches
-  frc::DigitalInput lSwitch1{3}; 
-  frc::DigitalInput lSwitch2{4};
-
-  //WPILIB Trajectory
-  //constexpr auto ks = 0.0_V; 
-  // Writing in here causes issues and idk why
-
-  #pragma endregion
-
-
  public:
   void RobotInit() override {
-    
-    //WPILIB Trajectory
-    // DO NOT USE THESE VALUES!! THESE ARE PLACEHOLDERS UNTIL WE HAVE TIME TO CALCULATE OUR OWN
-    constexpr auto ks = 0.22_V;
-    constexpr auto kv = 1.98 * 1_V * 1_s / 1_m;
-    constexpr auto ka = 0.2 * 1_V * 1_s * 1_s / 1_m;
-    
-    constexpr double kPDriveVel = 8.5;
-    
-    constexpr auto kTrackWidth = 0.69_m;
-    extern const frc::DifferentialDriveKinematics kDriveKinematics;
-
-    constexpr auto kMaxSpeed = 3_mps;
-    constexpr auto kMaxAcceleration = 3_mps_sq;
-
-    // These values should work with most robots.
-    // If having issues, tune them here - https://docs.wpilib.org/en/stable/docs/software/advanced-controls/trajectories/ramsete.html#constructing-the-ramsete-controller-object
-    constexpr double kRamseteB = 2;
-    constexpr double kRamseteZeta = 0.7;
 
     // Motor inverts
     m_leftMotor.SetInverted(true);
