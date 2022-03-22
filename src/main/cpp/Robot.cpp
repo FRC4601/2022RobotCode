@@ -136,11 +136,11 @@ frc::DigitalInput lSwitch2{4};
 // I would place them inside their own header file but I run into issues
 //WPILIB Trajectory
 // DO NOT USE THESE VALUES!! THESE ARE PLACEHOLDERS UNTIL WE HAVE TIME TO CALCULATE OUR OWN
-constexpr auto ks = 0.22_V;
-constexpr auto kv = 1.98 * 1_V * 1_s / 1_m;
-constexpr auto ka = 0.2 * 1_V * 1_s * 1_s / 1_m;
+constexpr auto ks = 0.7654_V;
+constexpr auto kv = 0.0040652 * 1_V * 1_s / 1_m;
+constexpr auto ka = 0.0014204 * 1_V * 1_s * 1_s / 1_m;
     
-constexpr double kPDriveVel = 8.5;
+constexpr double kPDriveVel = 0.0063382;
     
 constexpr auto kTrackWidth = 0.69_m;
 extern const frc::DifferentialDriveKinematics kDriveKinematics;
@@ -153,7 +153,7 @@ constexpr auto kMaxAcceleration = 3_mps_sq;
 constexpr double kRamseteB = 2;
 constexpr double kRamseteZeta = 0.7;
 
-/*
+
 class DriveSubsystem : public frc2::SubsystemBase {
   public:
     DriveSubsystem();
@@ -297,7 +297,7 @@ void DriveSubsystem::ResetOdometry(frc::Pose2d pose) {
   ResetEncoders();
   m_odometry.ResetPosition(pose, m_gyro.GetAngle());
 }
-*/
+
 #pragma endregion
 
 
@@ -684,13 +684,14 @@ class Robot : public frc::TimedRobot {
       pidController.SetSetpoint(0);
 
       // rotational pid loop
-      float offset = pidController.Calculate(tx);
-      if (abs(tx) > 1 && offset >= 0.25)  // adding offset to this could cause issues. added to try to prevent issue between this and distance
+      //float offset = pidController.Calculate(tx);
+      if (abs(tx) > 1)  // adding offset to this could cause issues. added to try to prevent issue between this and distance
       {
         float offset = pidController.Calculate(tx);
         m_robotDrive.TankDrive(offset, -offset);
       }
-      
+      /*
+      why is this causing build issues?
       // idea: use offset to calculate when robot is aligned. then execute distance code based on that
       float offset = pidController.Calculate(tx);
       if (offset < 0.25)  // value needs calibrating // should execute when aligned
@@ -709,6 +710,7 @@ class Robot : public frc::TimedRobot {
           m_robotDrive.TankDrive(0, 0);
         }
       }
+      */
     }  
     
     #pragma endregion
