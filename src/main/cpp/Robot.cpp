@@ -153,7 +153,7 @@ constexpr auto kMaxAcceleration = 3_mps_sq;
 constexpr double kRamseteB = 2;
 constexpr double kRamseteZeta = 0.7;
 
-
+/*
 class DriveSubsystem : public frc2::SubsystemBase {
   public:
     DriveSubsystem();
@@ -232,8 +232,8 @@ class DriveSubsystem : public frc2::SubsystemBase {
 DriveSubsystem::DriveSubsystem()
   : m_leftMotor{1},
     m_rightMotor{2},
-    m_leftEncoder{0, 1},
-    m_rightEncoder{0, 1},
+    m_leftEncoder{4, 5},
+    m_rightEncoder{2, 3},
     m_odometry{m_gyro.GetAngle()} {  // By default GetAngle() calculates Y axis. This could be wrong angle for this purpose idk
 
       // Depending on our drivetrain, may need to invert left instead
@@ -297,7 +297,7 @@ void DriveSubsystem::ResetOdometry(frc::Pose2d pose) {
   ResetEncoders();
   m_odometry.ResetPosition(pose, m_gyro.GetAngle());
 }
-
+*/
 #pragma endregion
 
 
@@ -348,7 +348,7 @@ class Robot : public frc::TimedRobot {
   };
   
   void AutonomousPeriodic() override {
-    
+    /*
     #pragma region // Pathplanner auton
     // idea: can create multiple paths with shoot commands added inbetween them
 
@@ -386,6 +386,7 @@ class Robot : public frc::TimedRobot {
     }
 
     #pragma endregion
+    */
 
   };
 
