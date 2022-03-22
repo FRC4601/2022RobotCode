@@ -135,17 +135,16 @@ frc::DigitalInput lSwitch2{4};
 // idk if this is the best place for these.
 // I would place them inside their own header file but I run into issues
 //WPILIB Trajectory
-// DO NOT USE THESE VALUES!! THESE ARE PLACEHOLDERS UNTIL WE HAVE TIME TO CALCULATE OUR OWN
 constexpr auto ks = 0.7654_V;
 constexpr auto kv = 0.0040652 * 1_V * 1_s / 1_m;
 constexpr auto ka = 0.0014204 * 1_V * 1_s * 1_s / 1_m;
     
 constexpr double kPDriveVel = 0.0063382;
     
-constexpr auto kTrackWidth = 0.69_m;
+constexpr auto kTrackWidth = 0.4445_m;
 extern const frc::DifferentialDriveKinematics kDriveKinematics;
 
-constexpr auto kMaxSpeed = 3_mps;
+constexpr auto kMaxSpeed = 3_mps; // how do calculate these values?
 constexpr auto kMaxAcceleration = 3_mps_sq;
 
 // These values should work with most robots.
