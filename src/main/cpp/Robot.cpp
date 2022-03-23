@@ -58,6 +58,12 @@
 #include <units/voltage.h>
 #include <frc/geometry/Rotation2d.h>
 #include <frc/kinematics/DifferentialDriveWheelSpeeds.h>
+#include <frc2/command/Command.h>
+#include <frc2/command/InstantCommand.h>
+#include <frc/smartdashboard/SendableChooser.h>
+#include <frc/trajectory/constraint/TrajectoryConstraint.h>
+#include <frc/controller/SimpleMotorFeedforward.h>
+#include <wpi/SymbolExports.h>
 
 //Gyro https://juchong.github.io/ADIS16470-RoboRIO-Driver/classfrc_1_1_a_d_i_s16470___i_m_u.html
 #include <frc/ADIS16470_IMU.h>
@@ -123,12 +129,10 @@ frc::ADIS16470_IMU imu{frc::ADIS16470_IMU::IMUAxis::kZ, frc::SPI::Port::kOnboard
 frc::DigitalInput lSwitch1{3}; 
 frc::DigitalInput lSwitch2{4};
 
-//WPILIB Trajectory
-//constexpr auto ks = 0.0_V; 
-// Writing in here causes issues and idk why
-
 #pragma endregion
 
+// none of this works. why would they make this, say its updated when its clearly not, and then expect high school students to make their own version of it
+// no high school student could ever make something like this. only a mentor with a college degree and experience in this work could. fucking bullshit im useless
 
 #pragma region  // wpilib trajectory code
 
@@ -297,6 +301,35 @@ void DriveSubsystem::ResetOdometry(frc::Pose2d pose) {
   m_odometry.ResetPosition(pose, m_gyro.GetAngle());
 }
 
+/*
+* Trajectory Setup
+*/
+// I can't find a way to add RobotContainer.h
+// So I looked up different versions of it (because of course there isn't one version of it)
+// And I think this class should be the correct one
+
+// No, I don't know what any of this means or does.
+class RobotContainer {
+  public:
+    RobotContainer();
+
+    frc2::Command* GetAutonomousCommand();
+  
+  private:
+    // Driver Controller
+    frc::Joystick m_rightStick{1};
+
+    // Robot subsystem
+    DriveSubsystem m_drive;
+
+    // Chooser for the autonomous routines
+    frc::SendableChooser<frc2::Command*> m_chooser;
+};
+
+frc2::Command* RobotContainer::GetAutonomousCommand() {
+  // Create a voltage constraint to ensure we don't accelerate too fast
+}
+
 #pragma endregion
 
 
@@ -337,6 +370,8 @@ class Robot : public frc::TimedRobot {
     wpi::PortForwarder::GetInstance().Add(5803, "limelight.local", 5803);
     wpi::PortForwarder::GetInstance().Add(5804, "limelight.local", 5804);
     wpi::PortForwarder::GetInstance().Add(5805, "limelight.local", 5805);
+    wpi::PortForwarder::GetInstance().Add(1181, "wpilibpi.local", 1181);
+
     
   };
   
@@ -347,13 +382,15 @@ class Robot : public frc::TimedRobot {
   };
   
   void AutonomousPeriodic() override {
-    /*
+    
     #pragma region // Pathplanner auton
     // idea: can create multiple paths with shoot commands added inbetween them
 
     pathplanner::PathPlannerTrajectory testPath = pathplanner::PathPlanner::loadPath("Test Path", 7_mps, 4_mps_sq);
 
     #pragma endregion
+
+
 
     #pragma region //1 ball auton
 
@@ -385,7 +422,7 @@ class Robot : public frc::TimedRobot {
     }
 
     #pragma endregion
-    */
+    
 
   };
 
