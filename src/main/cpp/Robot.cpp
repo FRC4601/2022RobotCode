@@ -48,6 +48,7 @@
 //FRC Pathplanner
 #include <pathplanner/lib/PathPlanner.h>
 
+// I don't know what i need to keep with these so I'm not going to delete these yet
 // WPILIB Trajectory
 #include <frc/kinematics/DifferentialDriveKinematics.h>
 #include <frc/Encoder.h>
@@ -58,6 +59,12 @@
 #include <units/voltage.h>
 #include <frc/geometry/Rotation2d.h>
 #include <frc/kinematics/DifferentialDriveWheelSpeeds.h>
+#include <frc2/command/Command.h>
+#include <frc2/command/InstantCommand.h>
+#include <frc/smartdashboard/SendableChooser.h>
+#include <frc/trajectory/constraint/TrajectoryConstraint.h>
+#include <frc/controller/SimpleMotorFeedforward.h>
+#include <wpi/SymbolExports.h>
 
 //Gyro https://juchong.github.io/ADIS16470-RoboRIO-Driver/classfrc_1_1_a_d_i_s16470___i_m_u.html
 #include <frc/ADIS16470_IMU.h>
@@ -123,180 +130,6 @@ frc::ADIS16470_IMU imu{frc::ADIS16470_IMU::IMUAxis::kZ, frc::SPI::Port::kOnboard
 frc::DigitalInput lSwitch1{3}; 
 frc::DigitalInput lSwitch2{4};
 
-//WPILIB Trajectory
-//constexpr auto ks = 0.0_V; 
-// Writing in here causes issues and idk why
-
-#pragma endregion
-
-
-#pragma region  // wpilib trajectory code
-
-// idk if this is the best place for these.
-// I would place them inside their own header file but I run into issues
-//WPILIB Trajectory
-constexpr auto ks = 0.7654_V;
-constexpr auto kv = 0.0040652 * 1_V * 1_s / 1_m;
-constexpr auto ka = 0.0014204 * 1_V * 1_s * 1_s / 1_m;
-    
-constexpr double kPDriveVel = 0.0063382;
-    
-constexpr auto kTrackWidth = 0.4445_m;
-extern const frc::DifferentialDriveKinematics kDriveKinematics;
-
-constexpr auto kMaxSpeed = 3_mps; // how do calculate these values?
-constexpr auto kMaxAcceleration = 3_mps_sq;
-
-// These values should work with most robots.
-// If having issues, tune them here - https://docs.wpilib.org/en/stable/docs/software/advanced-controls/trajectories/ramsete.html#constructing-the-ramsete-controller-object
-constexpr double kRamseteB = 2;
-constexpr double kRamseteZeta = 0.7;
-
-
-class DriveSubsystem : public frc2::SubsystemBase {
-  public:
-    DriveSubsystem();
-
-    void Periodic() override;
-
-    // Subsystem methods go here
-
-    // Drives the robot using arcade controls
-    void ArcadeDrive(double fwd, double rot);
-
-    // Controls each side of the robot directly with voltage
-    void TankDriveVolts(units::volt_t left, units::volt_t right);
-
-    // Resets the drive encoders to read a position of 0
-    void ResetEncoders();
-
-    // Gets the average distance of the TWO encoders
-    double GetAverageEncoderDistance();
-
-    // Gets the left drive encoder
-    frc::Encoder& GetLeftEncoder();
-
-    // Gets the right drive encoder
-    frc::Encoder& GetRightEncoder();
-
-    // Sets the max output of the drive. Useful for scaling the drive to drive more slowly
-    void SetMaxOutput(double maxOutput);
-
-    // Returns the heading of the robot
-    units::degree_t GetHeading() const;
-
-    // Return the turn rate of the robot
-    double GetTurnRate();
-
-    // Returns the currently-estimated pose of the robot
-    frc::Pose2d GetPose();
-
-    // Returns the current wheel speeds of the robot
-    frc::DifferentialDriveWheelSpeeds GetWheelSpeeds();
-
-    // Resets the odometry of the specified pose
-    void ResetOdometry(frc::Pose2d pose);
-
-  private:
-    // Components (motor controllers and sensors) should generally be
-    // declared private and exposed only through public methods
-
-    // Motor controllers
-    frc::PWMVictorSPX m_leftMotor{1};
-    frc::PWMVictorSPX m_rightMotor{2};
-
-    // Motors on the left side of the drive
-    frc::MotorControllerGroup m_leftMotorGroup{m_leftMotor};
-
-    // Motors on the right side of the drive
-    frc::MotorControllerGroup m_rightMotorGroup{m_rightMotor};
-
-    // Robot drive
-    frc::DifferentialDrive m_drive{m_leftMotorGroup, m_rightMotorGroup};  // idk if I need groups since we only have two motor controllers total
-
-    // Left-side drive encoder
-    frc::Encoder m_leftEncoder;
-
-    // Right-side drive encoder
-    frc::Encoder m_rightEncoder;
-
-    // Gyro sensor
-    frc::ADIS16470_IMU m_gyro;
-
-    // Odometry class for tracking robot pose
-    frc::DifferentialDriveOdometry m_odometry;
-    
-};
-
-DriveSubsystem::DriveSubsystem()
-  : m_leftMotor{1},
-    m_rightMotor{2},
-    m_leftEncoder{4, 5},
-    m_rightEncoder{2, 3},
-    m_odometry{m_gyro.GetAngle()} {  // By default GetAngle() calculates Y axis. This could be wrong angle for this purpose idk
-
-      // Depending on our drivetrain, may need to invert left instead
-      m_rightMotorGroup.SetInverted(true);
-
-      // Set the distance per pulse for the encoders
-      m_leftEncoder.SetDistancePerPulse(kEncoderDistancePerPulse);
-      m_rightEncoder.SetDistancePerPulse(kEncoderDistancePerPulse);
-
-      ResetEncoders();
-}
-
-void DriveSubsystem::Periodic() {
-  // Implementation of subsystem periodic method goes here
-  m_odometry.Update(m_gyro.GetAngle(),
-                    units::meter_t(m_leftEncoder.GetDistance()),
-                    units::meter_t(m_rightEncoder.GetDistance()));
-}
-
-void DriveSubsystem::ArcadeDrive(double fwd, double rot) {
-  m_drive.ArcadeDrive(fwd, rot);
-}
-
-void DriveSubsystem::TankDriveVolts(units::volt_t left, units::volt_t right) {
-  m_leftMotorGroup.SetVoltage(left);
-  m_rightMotorGroup.SetVoltage(right);
-  m_drive.Feed();
-}
-
-void DriveSubsystem::ResetEncoders() {
-  m_leftEncoder.Reset();
-  m_rightEncoder.Reset();
-}
-
-double DriveSubsystem::GetAverageEncoderDistance() {
-  return (m_leftEncoder.GetDistance() + m_rightEncoder.GetDistance()) / 2.0;
-}
-
-frc::Encoder& DriveSubsystem::GetLeftEncoder() {
-  return m_leftEncoder;
-}
-
-frc::Encoder& DriveSubsystem::GetRightEncoder() {
-  return m_rightEncoder;
-}
-
-void DriveSubsystem::SetMaxOutput(double maxOutput) {
-  m_drive.SetMaxOutput(maxOutput);
-}
-
-units::degree_t DriveSubsystem::GetHeading() const {
-  return m_gyro.GetAngle(); // This could cause issues if it doesn't return in degrees
-}
-
-frc::DifferentialDriveWheelSpeeds DriveSubsystem::GetWheelSpeeds() {
-  return {units::meters_per_second_t(m_leftEncoder.GetRate()),
-          units::meters_per_second_t(m_rightEncoder.GetRate())};
-}
-
-void DriveSubsystem::ResetOdometry(frc::Pose2d pose) {
-  ResetEncoders();
-  m_odometry.ResetPosition(pose, m_gyro.GetAngle());
-}
-
 #pragma endregion
 
 
@@ -337,6 +170,8 @@ class Robot : public frc::TimedRobot {
     wpi::PortForwarder::GetInstance().Add(5803, "limelight.local", 5803);
     wpi::PortForwarder::GetInstance().Add(5804, "limelight.local", 5804);
     wpi::PortForwarder::GetInstance().Add(5805, "limelight.local", 5805);
+    wpi::PortForwarder::GetInstance().Add(1181, "wpilibpi.local", 1181);
+
     
   };
   
@@ -347,13 +182,18 @@ class Robot : public frc::TimedRobot {
   };
   
   void AutonomousPeriodic() override {
-    /*
+    
     #pragma region // Pathplanner auton
     // idea: can create multiple paths with shoot commands added inbetween them
 
     pathplanner::PathPlannerTrajectory testPath = pathplanner::PathPlanner::loadPath("Test Path", 7_mps, 4_mps_sq);
 
     #pragma endregion
+
+
+    #pragma region
+
+
 
     #pragma region //1 ball auton
 
@@ -385,7 +225,7 @@ class Robot : public frc::TimedRobot {
     }
 
     #pragma endregion
-    */
+    
 
   };
 
@@ -393,6 +233,17 @@ class Robot : public frc::TimedRobot {
       
 
   };
+
+/*
+  bool calculateRotateValue(float targetAngle) {
+    units::degree_t targetValue = 0_t;
+    units::degree_t error = targetAngle - imu.GetAngle();
+    if (error > 3_t)
+    {
+      units::degree_t rotation = error*0.1_t;
+    }
+  }
+*/
   
   void TeleopPeriodic() override {
 
@@ -415,6 +266,18 @@ class Robot : public frc::TimedRobot {
     }
     //frc::SmartDashboard::PutBoolean("Drive Toggle", driveCodeToggle);
     
+    frc::SmartDashboard::PutNumber("Axis X", (float)imu.GetAngle());
+
+    // Drive straight
+    //frc docs
+    if (m_rightStick.GetRawButton(4)) {
+      float kP = 0.1f;
+      units::degree_t error = -imu.GetAngle();
+      float turnPower = kP * (float)error;
+      m_robotDrive.ArcadeDrive(m_rightStick.GetY(), turnPower, false);
+    }
+
+    /*
     if (driveCodeToggle) 
     {
       // Drive with arcade style
@@ -457,7 +320,7 @@ class Robot : public frc::TimedRobot {
         m_robotDrive.ArcadeDrive(0, -m_rightStick.GetX(), false);
         frc::SmartDashboard::PutString("Drive Direction", "N/A");
       }
-      */
+      
      #pragma endregion
    
     }
@@ -466,6 +329,7 @@ class Robot : public frc::TimedRobot {
       // Drive with backwards arcade style
       m_robotDrive.ArcadeDrive(-m_leftStick.GetY(), m_rightStick.GetX());
     }
+    */
     
     #pragma endregion
 
