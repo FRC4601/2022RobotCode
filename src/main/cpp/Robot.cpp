@@ -1,6 +1,15 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
+// I took the time to comment the code as best I could.
+// If you guys need anything/run into issues, please let me know.
+// I won't be able to work on it during the day, but I can work on it as soon as I'm home.
+// Really sorry I can't make it to the actual competition.
+
+// You guys got this tho! You put in all the work, now go kick some serious robo-butt!
+//╱╱┏╮
+//╱╱┃┃
+//▉━╯┗━╮
+//▉┈┈┈┈┃
+//▉╮┈┈┈┃
+//╱╰━━━╯
 
 #include <frc/Joystick.h>
 #include <frc/TimedRobot.h>
@@ -48,7 +57,6 @@
 //FRC Pathplanner
 #include <pathplanner/lib/PathPlanner.h>
 
-// I don't know what i need to keep with these so I'm not going to delete these yet
 // WPILIB Trajectory
 #include <frc/kinematics/DifferentialDriveKinematics.h>
 #include <frc/Encoder.h>
@@ -134,6 +142,11 @@ frc::ADIS16470_IMU imu{frc::ADIS16470_IMU::IMUAxis::kZ, frc::SPI::Port::kOnboard
 frc::DigitalInput lSwitch1{3}; 
 frc::DigitalInput lSwitch2{4};
 
+/*
+* I wasn't able to get this working. 
+* Ill see if I can create a workaround thursday evening after work.
+*/
+
 //Sendable chooser
 //std::string autonList = {"Forward", "Backward"};
 //wpi::span<const std::__cxx11::string> test1 = {"Forward", "Backward"};
@@ -149,8 +162,8 @@ class Robot : public frc::TimedRobot {
     //Sendable chooser
     //m_chooser.AddOption("Forward", autonTest::FORWARD);
     //m_chooser.AddOption("Backward", autonTest::BACKWARDS);
-    //frc::SmartDashboard::PutStringArray("Auto List", {"Forward", "Backward"});  //This is exactly whats in their own fucking docs. And it doesn't work. Every fucking year shit like this happens. Yet we are just supposed to work with it. If you can't maintain ur own docs, you shouldnt have them up acting like they work. go fuck yourselves frc. 
-
+    //frc::SmartDashboard::PutStringArray("Auto List", {"Forward", "Backward"}); // This is exactly copy/paste from their docs. Why doesn't it work.
+   
     // Motor inverts
     m_leftMotor.SetInverted(true);
     armMotor.SetInverted(true);
@@ -199,7 +212,7 @@ class Robot : public frc::TimedRobot {
     #pragma region // Pathplanner auton
     // idea: can create multiple paths with shoot commands added inbetween them
 
-    pathplanner::PathPlannerTrajectory testPath = pathplanner::PathPlanner::loadPath("Test Path", 7_mps, 4_mps_sq);
+    //pathplanner::PathPlannerTrajectory testPath = pathplanner::PathPlanner::loadPath("Test Path", 7_mps, 4_mps_sq);
 
     #pragma endregion
 
@@ -300,7 +313,7 @@ class Robot : public frc::TimedRobot {
     }
     //frc::SmartDashboard::PutBoolean("Drive Toggle", driveCodeToggle);
     
-    frc::SmartDashboard::PutNumber("Axis X", (float)imu.GetAngle());
+    //frc::SmartDashboard::PutNumber("Axis X", (float)imu.GetAngle());
 
     // Drive straight
     //frc docs
@@ -431,7 +444,12 @@ class Robot : public frc::TimedRobot {
     {
       ballColor = "Unknown";
     }
-
+    
+    /*
+    * Make sure to recalibrate these at competition. 
+    * All the values are in the smartdashboard.
+    */
+   
     // Use detected RGB values to calibrate
     frc::SmartDashboard::PutNumber("Red", detectedColor.red);
     frc::SmartDashboard::PutNumber("Green", detectedColor.green);
@@ -558,8 +576,13 @@ class Robot : public frc::TimedRobot {
     
     
     #pragma region // Limelight code
+   
+    /*
+    * Right now the distance and rotation code are separated.
+    * For use in auton, see function and comments below at line 696
+    */
 
-    // Tracking
+    // Rotation Tracking
     if (m_rightStick.GetRawButton(1)) 
     {
       nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("pipeline",0);
@@ -589,30 +612,25 @@ class Robot : public frc::TimedRobot {
         float offset = pidController.Calculate(tx);
         m_robotDrive.TankDrive(offset, -offset);
       }
-      /*
-      why is this causing build issues?
-      // idea: use offset to calculate when robot is aligned. then execute distance code based on that
-      float offset = pidController.Calculate(tx);
-      if (offset < 0.25)  // value needs calibrating // should execute when aligned
-      {
-        // min/max distance code
-        if (currentDistance > maxDistance)
-        {
-          m_robotDrive.TankDrive(-0.55, -0.55);
-        }
-        else if (currentDistance < minDistance)
-        {
-          m_robotDrive.TankDrive(0.55, 0.55);
-        }
-        else
-        {
-          m_robotDrive.TankDrive(0, 0);
-        }
-      }
-      */
     }  
 
-    if (m_rightStick.GetRawButton(4)) {
+    // Distance Tracking (may want to change button value to something more comfortable. Up to you)
+    if (m_rightStick.GetRawButton(4)) 
+    {
+      nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("pipeline",0);
+      //nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode", 1);
+      double tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
+      double ta = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ta", 0.0);
+      double tv = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tv", 0.0);
+      double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
+      double minDistance = 100;
+      double maxDistance = 125;
+      double currentDistance = EstimateDistance();
+      float kpDistance = -0.5f;
+
+      std::string s = std::to_string(currentDistance);
+      frc::SmartDashboard::PutString("DB/String 0", s);
+     
       // min/max distance code
         if (currentDistance > 100)
         {
@@ -664,7 +682,8 @@ class Robot : public frc::TimedRobot {
 
     #pragma endregion
   }
-
+ 
+ 
   double EstimateDistance() {
     double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty",0.0);
     double h2 = 104; // Height of target
@@ -681,23 +700,90 @@ class Robot : public frc::TimedRobot {
     //D Returns in inches
 
   }
-
+ 
   /*
-  double EstimateSpeed(double d) {
-    double h = 1.8;
-    double theta, v;
-    theta = atan(2 * h / d);
-    v = pow(2.0 * g * d / sin(2.0 * theta), 0.5);
-    return v;
-  }
+  * For use in auton, you should be able to use these functions inside a timing loop, similar to how you did the 1 ball auton
+  * Something like this vv
+  *
+  * if (m_Timer.Get() < 2_s)
+  * {
+  *   AutonRotation();
+  *  }
+  *
+  * As long as the if statement is true, this should work. Let me know if it doesn't.
+  */
+ 
+  // Rotation Function
+  void AutonRotation()
+   {
+      nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("pipeline",0);
+      //nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode", 1);
+      double tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
+      double ta = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ta", 0.0);
+      double tv = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tv", 0.0);
+      double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
+      double minDistance = 100;
+      double maxDistance = 125;
+      double currentDistance = EstimateDistance();
+      float kpDistance = -0.5f;
 
-  double EstimateAngle(double d) {
-    double h = 1.8;
-    double theta;
-    theta = atan(2 * h/d);
-    theta = 180 * theta / pi;
-    return theta;
-  }*/
+      std::string s = std::to_string(currentDistance);
+      frc::SmartDashboard::PutString("DB/String 0", s);
+
+
+      pidController.SetP(0.0365); //Warren known decent values 0.0365, 0.007, 0.0
+      pidController.SetI(0.007);
+      pidController.SetD(0.0);
+      pidController.SetSetpoint(0);
+
+      // rotational pid loop
+      //float offset = pidController.Calculate(tx);
+      if (abs(tx) > 1)  // adding offset to this could cause issues. added to try to prevent issue between this and distance
+      {
+        float offset = pidController.Calculate(tx);
+        m_robotDrive.TankDrive(offset, -offset);
+      }
+    }
+ 
+  // Distance Function
+  void AutonDistance()
+   {
+      nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("pipeline",0);
+      //nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("ledMode", 1);
+      double tx = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tx", 0.0);
+      double ta = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ta", 0.0);
+      double tv = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tv", 0.0);
+      double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
+      // Change both of these values to match what you need.
+      // Making them the exact same could cause the robot to oscillate back and forth (maybe test it? tbh I'm not 100 percent sure)
+      // I'd recommend keeping at least a 10 point difference to prevent this.
+      // (if it is an issue. again, test the values you want and see what happens. It's as easy and changing these two values)
+      double minDistance = 100;
+      double maxDistance = 125;
+   
+      double currentDistance = EstimateDistance();
+      float kpDistance = -0.5f;
+
+      std::string s = std::to_string(currentDistance);
+      frc::SmartDashboard::PutString("DB/String 0", s);
+     
+      // min/max distance code
+        if (currentDistance > minDistance)
+        {
+          m_robotDrive.TankDrive(-0.55, -0.55);
+        }
+        else if (currentDistance < MaxDistance)
+        {
+          m_robotDrive.TankDrive(0.55, 0.55);
+        }
+        else
+        {
+          m_robotDrive.TankDrive(0, 0);
+        }
+    }
+
+ 
+ 
 void DisabledInit() override
   {
   };
