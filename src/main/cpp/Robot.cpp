@@ -190,6 +190,7 @@ class Robot : public frc::TimedRobot {
     shooter1.Config_kD(0,0);
 
     //limelight
+
     wpi::PortForwarder::GetInstance().Add(5800, "limelight.local", 5800);
     wpi::PortForwarder::GetInstance().Add(5801, "limelight.local", 5801);
     wpi::PortForwarder::GetInstance().Add(5802, "limelight.local", 5802);
@@ -252,17 +253,17 @@ class Robot : public frc::TimedRobot {
 
     
 
-/*
+
     #pragma region // 1 ball auton
 
-    if (m_timer.Get() < 3_s) //set up 3 feet off fender
+    if (m_timer.Get() < 1_s) //set up 3 feet off fender
     {
-      shooter1.Set(ControlMode::Velocity, 2215);
-      shooter3.Set(.6);
+      m_robotDrive.ArcadeDrive(0.45, 0.0);
+      shooter1.Set(ControlMode::Velocity, 2500);
+      shooter3.Set(1.0);
     }
     else if (m_timer.Get() >= 3_s && m_timer.Get() < 6_s)
     {
-      shooter3.Set(1.0);
       stagingMotor.Set(0.5);
     }
     else if (m_timer.Get() >= 6_s && m_timer.Get() < 7_s)
@@ -271,19 +272,19 @@ class Robot : public frc::TimedRobot {
       shooter3.Set(0);
       stagingMotor.Set(0);
     }
-    else if (m_timer.Get() >= 7_s && m_timer.Get() < 9_s)
+    else if (m_timer.Get() >= 7_s && m_timer.Get() < 8_s)
     {
       m_robotDrive.ArcadeDrive(0.6, 0.0);
 
     }
-    else if (m_timer.Get() >= 10_s && m_timer.Get() < 11_s)
+    else if (m_timer.Get() >= 9_s && m_timer.Get() < 11_s)
     {
       m_robotDrive.ArcadeDrive(0.0, 0.0);
 
     }
 
     #pragma endregion
-*/
+
 
   };
 
@@ -293,12 +294,10 @@ class Robot : public frc::TimedRobot {
   };
   
   void TeleopPeriodic() override {
-
-    int shooterspeed = 0;
-     
+    
+    double shooterSpeed;
     double currentDistance = EstimateDistance();
 
-    frc::SmartDashboard::PutNumber("Shooter Speed", shooterspeed);
     frc::SmartDashboard::PutNumber("Estimated Distance", currentDistance);
 
     nt::NetworkTableInstance::GetDefault().GetTable("limelight")->PutNumber("pipeline",0);
@@ -325,12 +324,13 @@ class Robot : public frc::TimedRobot {
       m_robotDrive.ArcadeDrive(m_rightStick.GetY(), turnPower, false);
     }
     */
-
-    /*
+    bool driveDirection;
+    
     if (driveCodeToggle) 
     {
       // Drive with arcade style
       m_robotDrive.ArcadeDrive(m_rightStick.GetY(), -m_rightStick.GetX());
+      driveDirection = true;
 
       #pragma region //drive with arcade and speed slider
     /*
@@ -371,22 +371,29 @@ class Robot : public frc::TimedRobot {
       }
       
      #pragma endregion
-   
+   */
     }
     else 
     {
       // Drive with backwards arcade style
-      m_robotDrive.ArcadeDrive(-m_leftStick.GetY(), m_rightStick.GetX());
+      m_robotDrive.ArcadeDrive(-m_leftStick.GetY(), -m_rightStick.GetX());
+      driveDirection = false;
     }
-    */
+    
     
     #pragma endregion
 
     #pragma region // Shooter Control
-
+    shooterSpeed = shooter1.GetSelectedSensorVelocity(); 
+    frc::SmartDashboard::PutNumber("Shooter Speed", shooterSpeed);
     double shooterVelocity;
+    bool fire = false;
+    bool shooterIdle;
+    frc::SmartDashboard::PutBoolean("Flywheel Idle", shooterIdle);
+    frc::SmartDashboard::PutBoolean("Direction", driveDirection);
 
-    if (xboxController.GetRawButtonPressed(12))
+
+    if (xboxController.GetRawButtonPressed(10))
     {
       flyWheelToggle = !flyWheelToggle;
     }
@@ -402,24 +409,44 @@ class Robot : public frc::TimedRobot {
     {
       shooter1.Set(ControlMode::Velocity, 3500); //tuned at limelight estimate distance 115
       shooter3.Set(1);
+      if (shooterSpeed > 3200)
+      {
+        fire = true;
+      }
+      else
+      {
+        fire = false;
+      }
     }
     else if (m_rightStick.GetRawButton(2))
     {
       shooter1.Set(ControlMode::Velocity, 2600);
       shooter3.Set(.15);
+      if (shooterSpeed > 2400)
+      {
+        fire = true;
+      }
+      else
+      {
+        fire = false;
+      }
     }
     else 
     {
      if (flyWheelToggle){
-      shooter1.Set(ControlMode::Velocity, 0); //2500 base run
-      shooter3.Set(0.0);
-     }
-     else{
       shooter1.Set(ControlMode::Velocity, 2000);
       shooter3.Set(0.15);
+      bool shooterIdle = true;
+     }
+     else{
+      shooter1.Set(ControlMode::Velocity, 0); 
+      shooter3.Set(0.0);
+      bool shooterIdle = false;
      }
     }
     
+    frc::SmartDashboard::PutBoolean("Fire", fire);
+
     #pragma endregion
 
 
@@ -472,7 +499,7 @@ class Robot : public frc::TimedRobot {
 
    
     // armMotor
-    if (xboxController.GetRawButton(1))
+    if (xboxController.GetRawButton(2))
     {
       if(armAngle > 1000)
       {
@@ -484,7 +511,7 @@ class Robot : public frc::TimedRobot {
       }
       
     }
-    else if(xboxController.GetRawButton(2))
+    else if(xboxController.GetRawButton(3))
     {
       if (armAngle < 1400)
       {
@@ -495,7 +522,7 @@ class Robot : public frc::TimedRobot {
         armMotor.Set(0.0);
       }
     }
-    else if (xboxController.GetRawButton(6))
+    else if (xboxController.GetRawButton(8))
     {
       if(armAngle > 1000)
       {
@@ -535,7 +562,7 @@ class Robot : public frc::TimedRobot {
     }
 
 
-    if (xboxController.GetRawButton(3))
+    if (xboxController.GetRawButton(1))
     {
       // No ball
       if (ballColor == "Unknown") 
@@ -558,10 +585,10 @@ class Robot : public frc::TimedRobot {
     }
     else if (xboxController.GetRawButton(4))
     {
-      intakeMotor.Set(-0.75);
+      intakeMotor.Set(-1.0);
       stagingMotor.Set(-0.5);
     }
-    else if (xboxController.GetRawButton(6))
+    else if (xboxController.GetRawButton(8))
     {
       stagingMotor.Set(0.5);
       intakeMotor.Set(0.3);
@@ -591,8 +618,8 @@ class Robot : public frc::TimedRobot {
       double ta = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ta", 0.0);
       double tv = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("tv", 0.0);
       double ty = nt::NetworkTableInstance::GetDefault().GetTable("limelight")->GetNumber("ty", 0.0);
-      double minDistance = 100;
-      double maxDistance = 125;
+      double minDistance = 50;
+      double maxDistance = 250;
       double currentDistance = EstimateDistance();
       float kpDistance = -0.5f;
 
@@ -600,9 +627,12 @@ class Robot : public frc::TimedRobot {
       frc::SmartDashboard::PutString("DB/String 0", s);
 
 
-      pidController.SetP(0.0365); //Warren known decent values 0.0365, 0.007, 0.0
-      pidController.SetI(0.007);
-      pidController.SetD(0.0);
+      //pidController.SetP(0.0265); //Known decent values at Warren 0.0365, 0.007, 0.0
+      //pidController.SetI(0.0015);
+      //pidController.SetD(0.0021);
+      pidController.SetP(0.06);
+      pidController.SetI(0.01);
+      pidController.SetD(0.01);
       pidController.SetSetpoint(0);
 
       // rotational pid loop
@@ -632,7 +662,7 @@ class Robot : public frc::TimedRobot {
       frc::SmartDashboard::PutString("DB/String 0", s);
      
       // min/max distance code
-        if (currentDistance > 100)
+        if (currentDistance > 125)
         {
           m_robotDrive.TankDrive(-0.55, -0.55);
         }
@@ -664,7 +694,7 @@ class Robot : public frc::TimedRobot {
        blinkin.Set(-0.05);
 
     }
-    else if (xboxController.GetRawButton(6)) //fire
+    else if (xboxController.GetRawButton(8)) //fire
     {
       blinkin.Set(-0.07);
     }
@@ -772,7 +802,7 @@ class Robot : public frc::TimedRobot {
         {
           m_robotDrive.TankDrive(-0.55, -0.55);
         }
-        else if (currentDistance < MaxDistance)
+        else if (currentDistance < maxDistance)
         {
           m_robotDrive.TankDrive(0.55, 0.55);
         }
